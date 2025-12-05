@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Heart, Calendar, MapPin, Briefcase, Camera, Home, Music, X, ChevronRight, Sun, Baby, Users, Star, Globe, Smile, Armchair, Book, Image as ImageIcon, Edit2, Save, Plus, Lock, Unlock, Trash2, ArrowLeft, ArrowRight, Maximize, Upload, ZoomIn, ZoomOut, Cake, Settings, LogOut, Loader2, Newspaper, StickyNote
+  Heart, Calendar, MapPin, Briefcase, Camera, Home, Music, X, ChevronRight, Sun, Baby, Users, Star, Globe, Smile, Armchair, Book, Image as ImageIcon, Edit2, Save, Plus, Lock, Unlock, Trash2, ArrowLeft, ArrowRight, Maximize, Upload, ZoomIn, ZoomOut, Cake, Loader2, Newspaper, StickyNote
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -217,7 +217,7 @@ const TreeBranch = ({ person, allMembers, onSelect, stopRecursion = false }: any
 };
 
 // --- SEPARATE FAMILY TREE VIEW COMPONENT ---
-const FamilyTreeView = ({ familyMembers, viewRootId, setViewRootId, onSelect, zoom, scrollContainerRef, handleZoomIn, handleZoomOut, handleResetZoom, isEditMode }: any) => {
+const FamilyTreeView = ({ familyMembers, viewRootId, setViewRootId, onSelect, zoom, scrollContainerRef, handleZoomIn, handleZoomOut, handleResetZoom, handleAddMember, isEditMode }: any) => {
     const [isDragging, setIsDragging] = useState(false);
     const [startX, setStartX] = useState(0);
     const [startY, setStartY] = useState(0);
@@ -266,7 +266,7 @@ const FamilyTreeView = ({ familyMembers, viewRootId, setViewRootId, onSelect, zo
     
     if (currentRoot) {
         if (currentRoot.parentId) {
-            const directParent = familyMembers.find((m: any) => m.id === currentRoot.parentId);
+            const directParent: any[] = familyMembers.find((m: any) => m.id === currentRoot.parentId);
             parents = directParent ? [directParent] : [];
         }
         if (viewRootId === 'jackie') {
@@ -582,15 +582,59 @@ export default function App() {
           setEditModalConfig({ isOpen: true, title: "Edit Friend", fields, onSave: (data: any) => { const updated = { ...selectedPerson, ...data }; dbUpdate('friends', selectedPerson.id, updated); setSelectedPerson(updated); setEditModalConfig((p: any) => ({...p, isOpen:false})); }, onUpload: handleUpload }); 
       } 
   };
+  
+  // Edit logic for friends (passed to the card)
+  const handleEditPerson = (friend: any) => { setSelectedPerson(friend); }; // For friends, click just selects them
 
   const handleDeletePersonAny = () => { if (selectedPerson.hasOwnProperty('generation')) { alert("Family structure is fixed."); } else { setConfirmModalConfig({ isOpen: true, title: "Delete", message: "Remove friend?", onConfirm: () => { dbDelete('friends', selectedPerson.id); setSelectedPerson(null); setConfirmModalConfig((p: any) => ({...p, isOpen:false})); }}); } };
   const handleAddHome = () => { const fields = [{ name: "name", label: "Name", value: "" }, { name: "address", label: "Address", value: "" }, { name: "years", label: "Years", value: "" }, { name: "image", label: "Photo", value: "", type: "file" }]; setEditModalConfig({ isOpen: true, title: "Add Home", fields, onSave: (data: any) => { const id = Date.now(); const newHome = { id, color: "bg-indigo-500", description: "...", features: [], rooms: [], ...data }; dbUpdate('homes', id, newHome); setEditModalConfig((p: any) => ({...p, isOpen:false})); }, onUpload: handleUpload }); };
   const handleEditHome = () => { const fields = [{ name: "name", label: "Name", value: selectedHome.name }, { name: "address", label: "Address", value: selectedHome.address }, { name: "years", label: "Years", value: selectedHome.years }, { name: "description", label: "Description", value: selectedHome.description, type: "textarea" }, { name: "image", label: "Photo", value: selectedHome.image, type: "file" }]; setEditModalConfig({ isOpen: true, title: "Edit Home", fields, onSave: (data: any) => { const updatedHome = { ...selectedHome, ...data }; dbUpdate('homes', selectedHome.id, updatedHome); setSelectedHome(updatedHome); setEditModalConfig((p: any) => ({...p, isOpen:false})); }, onUpload: handleUpload }); };
   const handleAddRoom = () => { const fields = [{name: "name", label: "Room Name", value: ""}, {name: "desc", label: "Desc", value: "", type: "textarea"}, {name: "image", label: "Photo", value: "", type: "file"}]; setEditModalConfig({ isOpen: true, title: "Add Room", fields, onSave: (data: any) => { const newRoom = { name: data.name, desc: data.desc, image: data.image, color: "bg-indigo-100" }; const updatedHome = { ...selectedHome, rooms: [...(selectedHome.rooms || []), newRoom] }; dbUpdate('homes', selectedHome.id, updatedHome); setSelectedHome(updatedHome); setEditModalConfig((p: any) => ({...p, isOpen:false})); }, onUpload: handleUpload }); };
   const handleDeleteRoom = (index: number) => { setConfirmModalConfig({ isOpen: true, title: "Delete Room", message: "Delete?", onConfirm: () => { const updatedRooms = selectedHome.rooms.filter((_: any, i: number) => i !== index); const updatedHome = { ...selectedHome, rooms: updatedRooms }; dbUpdate('homes', selectedHome.id, updatedHome); setSelectedHome(updatedHome); setConfirmModalConfig((p: any) => ({...p, isOpen:false})); }}); };
-  const handleAddAlbum = () => { const id = Date.now(); dbUpdate('albums', id, { id, title: "New Album", color: "bg-slate-400", link: "https://photos.google.com", coverImage: "" }); };
-  const handleEditAlbum = (e: any, id: string|number) => { e.stopPropagation(); e.preventDefault(); const album = albums.find(a => a.id === id); setEditModalConfig({ isOpen: true, title: "Edit Album", fields: [{ name: "title", label: "Title", value: album.title }, { name: "link", label: "Link", value: album.link }, { name: "coverImage", label: "Photo", value: album.coverImage, type: "file" }], onSave: (data) => { dbUpdate('albums', id, { ...album, ...data }); setEditModalConfig(p => ({...p, isOpen:false})); }, onUpload: handleUpload }); };
-  const handleDeleteAlbum = (e: any, id: string|number) => { e.stopPropagation(); e.preventDefault(); setConfirmModalConfig({ isOpen: true, title: "Delete", message: "Delete?", onConfirm: () => { dbDelete('albums', id); setConfirmModalConfig(p => ({...p, isOpen:false})); }}); };
+  
+  // --- UPDATED ALBUM HANDLERS ---
+  const handleAddAlbum = () => { 
+      const fields = [
+          { name: "title", label: "Album Title", value: "" },
+          { name: "subtitle", label: "Month & Year (e.g. Dec 1980)", value: "" },
+          { name: "link", label: "Google Photos Link", value: "" },
+          { name: "coverImage", label: "Cover Photo", value: "", type: "file" }
+      ];
+      setEditModalConfig({
+          isOpen: true,
+          title: "Add Album",
+          fields,
+          onSave: (data: any) => {
+              const id = Date.now();
+              const newAlbum = { id, color: "bg-slate-400", ...data };
+              dbUpdate('albums', id, newAlbum);
+              setEditModalConfig((prev: any) => ({...prev, isOpen: false}));
+          },
+          onUpload: handleUpload
+      });
+  };
+  const handleEditAlbum = (e: any, id: string|number) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const album = albums.find(a => a.id === id);
+    const fields = [
+        { name: "title", label: "Album Title", value: album.title },
+        { name: "subtitle", label: "Month & Year", value: album.subtitle || "" },
+        { name: "link", label: "Link", value: album.link },
+        { name: "coverImage", label: "Cover Photo", value: album.coverImage, type: "file" }
+    ];
+    setEditModalConfig({
+        isOpen: true,
+        title: "Edit Album",
+        fields,
+        onSave: (data: any) => {
+            dbUpdate('albums', id, { ...album, ...data });
+            setEditModalConfig((p: any) => ({...p, isOpen:false}));
+        },
+        onUpload: handleUpload
+    });
+  };
+  const handleDeleteAlbum = (e: any, id: string|number) => { e.stopPropagation(); e.preventDefault(); setConfirmModalConfig({ isOpen: true, title: "Delete", message: "Delete?", onConfirm: () => { dbDelete('albums', id); setConfirmModalConfig((p: any) => ({...p, isOpen:false})); }}); };
   const saveEditedEntry = (id: string|number) => { const entry = journalEntries.find(e => e.id === id); const updated = { ...entry, content: editContent }; dbUpdate('journal', id, updated); setEditingEntryId(null); };
   const saveNewEntry = () => { if (!newEntryContent.trim()) return; const id = Date.now(); const newEntry = { id, date: newEntryDate, content: newEntryContent, mood: "Neutral" }; dbUpdate('journal', id, newEntry); setIsCreatingEntry(false); setNewEntryContent(""); };
   const deleteEntry = (id: string|number) => { if(window.confirm("Delete?")) dbDelete('journal', id); };
@@ -713,7 +757,7 @@ export default function App() {
                     {isEditMode && <button onClick={handleAddFriend} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"><Plus size={18} /> Add Friend</button>}
                 </header>
                 <div className="grid grid-cols-1 gap-4">
-                    {friends.map(friend => (<FriendCard key={friend.id} friend={friend} onClick={handleSelectFriend} />))}
+                    {friends.map(friend => (<FriendCard key={friend.id} friend={friend} onClick={handleEditPerson} />))}
                 </div>
              </div>
         )}
