@@ -23,6 +23,12 @@ const firebaseConfig = {
 };
 
 // --- HELPERS ---
+const safeRender = (val: any) => {
+  if (val === null || val === undefined) return "";
+  if (typeof val === 'object') return ""; 
+  return String(val);
+};
+
 const ICON_MAP: any = {
   baby: <Baby className="w-5 h-5 text-white" />,
   heart: <Heart className="w-5 h-5 text-white" />,
@@ -45,12 +51,6 @@ const getCategoryStyles = (category: any) => {
         case 'birthday': return { icon: 'cake', color: 'bg-rose-400', text: 'text-rose-500', bg: 'bg-rose-50', border: 'border-rose-200' };
         case 'family': default: return { icon: 'heart', color: 'bg-pink-500', text: 'text-pink-500', bg: 'bg-pink-50', border: 'border-pink-200' };
     }
-};
-
-const safeRender = (val: any) => {
-  if (val === null || val === undefined) return "";
-  if (typeof val === 'object') return ""; 
-  return String(val);
 };
 
 // --- DEFAULT DATA ---
@@ -85,7 +85,7 @@ const DEFAULT_TIMELINE = [
 const DEFAULT_JOURNAL = [{ id: '1', date: "2023-10-24", content: "Had a lovely cup of tea.", mood: "Happy" }];
 const DEFAULT_ALBUMS = [{ id: '1', title: 'Family Holidays', subtitle: 'Summer 1995', color: 'bg-blue-500', link: '', coverImage: '' }];
 
-// --- COMPONENTS ---
+// --- UI COMPONENTS ---
 
 const Modal = ({ isOpen, onClose, children, color = "bg-white", zIndex = "z-50" }: any) => {
   if (!isOpen) return null;
@@ -215,7 +215,7 @@ const TreeBranch = ({ person, allMembers, onSelect, stopRecursion = false }: any
 };
 
 // --- SEPARATE FAMILY TREE VIEW COMPONENT ---
-const FamilyTreeView = ({ familyMembers, viewRootId, setViewRootId, onSelect, zoom, scrollContainerRef, handleZoomIn, handleZoomOut, handleResetZoom, isEditMode }: any) => {
+const FamilyTreeView = ({ familyMembers, viewRootId, setViewRootId, onSelect, zoom, scrollContainerRef, handleZoomIn, handleZoomOut, handleResetZoom }: any) => {
     const [isDragging, setIsDragging] = useState(false);
     const [startX, setStartX] = useState(0);
     const [startY, setStartY] = useState(0);
@@ -432,16 +432,14 @@ export default function App() {
   
   const [viewRootId, setViewRootId] = useState('jackie');
   const [timelineZoom, setTimelineZoom] = useState(2);
-  const [startYear] = useState(1950); 
-  const [endYear] = useState(new Date().getFullYear() + 1); 
+  // Unused state setters removed for deployment build
+  const startYear = 1950; 
+  const endYear = new Date().getFullYear() + 1;
   const [filters, setFilters] = useState({ family: true, work: true, world: true, birthday: true });
 
   const toggleFilter = (key: any) => { setFilters((prev: any) => ({ ...prev, [key]: !prev[key] })); };
-  const [editContent] = useState("");
   const [isCreatingEntry, setIsCreatingEntry] = useState(false);
   const [newEntryContent, setNewEntryContent] = useState("");
-  const [newEntryDate] = useState(new Date().toISOString().split('T')[0]);
-  const [editingEntryId, setEditingEntryId] = useState(null);
 
   useEffect(() => {
     const storedAuth = localStorage.getItem('familyAuth');
@@ -561,6 +559,8 @@ export default function App() {
   const handleEditEvent = (e: any) => { e.stopPropagation(); const fields = [{ name: "title", label: "Title", value: selectedEvent.title }, { name: "year", label: "Year", value: selectedEvent.year }, { name: "description", label: "Desc", value: selectedEvent.description, type: "textarea" }, { name: "location", label: "Loc", value: selectedEvent.location }, { name: "type", label: "Style", value: selectedEvent.type, type: "select", options: [{value: 'memory', label: 'Standard Card'}, {value: 'headline', label: 'Headline Style'}, {value: 'photo', label: 'Polaroid Photo'}] }, { name: "image", label: "Image", value: selectedEvent.image, type: "file" }]; setEditModalConfig({ isOpen: true, title: "Edit Event", fields, onSave: (data: any) => { const styles = getCategoryStyles(data.category || selectedEvent.category); const updated = { ...selectedEvent, ...data, ...styles }; dbUpdate('timelineEvents', selectedEvent.id, updated); setSelectedEvent(updated); setEditModalConfig((p: any) => ({...p, isOpen:false})); }, onUpload: handleUpload }); };
   const handleDeleteEvent = (e: any) => { e.stopPropagation(); setConfirmModalConfig({isOpen: true, title: "Delete", message: "Delete event?", onConfirm: () => { dbDelete('timelineEvents', selectedEvent.id); setSelectedEvent(null); setConfirmModalConfig((p: any) => ({...p, isOpen:false})); }}); };
   
+  const handleAddFriend = () => { const id = Date.now(); dbUpdate('friends', id, { id, name: "New Friend", metAt: "Loc", frequency: "Often", role: "Friend", color: "bg-indigo-500", details: "...", memories: [] }); };
+  
   // Friend Selection Handlers
   const handleSelectFriend = (friend: any) => { setSelectedPerson(friend); };
 
@@ -576,7 +576,7 @@ export default function App() {
           setEditModalConfig({ isOpen: true, title: "Edit Friend", fields, onSave: (data: any) => { const updated = { ...selectedPerson, ...data }; dbUpdate('friends', selectedPerson.id, updated); setSelectedPerson(updated); setEditModalConfig((p: any) => ({...p, isOpen:false})); }, onUpload: handleUpload }); 
       } 
   };
-  
+
   const handleDeletePersonAny = () => { if (selectedPerson.hasOwnProperty('generation')) { alert("Family structure is fixed."); } else { setConfirmModalConfig({ isOpen: true, title: "Delete", message: "Remove friend?", onConfirm: () => { dbDelete('friends', selectedPerson.id); setSelectedPerson(null); setConfirmModalConfig((p: any) => ({...p, isOpen:false})); }}); } };
   const handleAddHome = () => { const fields = [{ name: "name", label: "Name", value: "" }, { name: "address", label: "Address", value: "" }, { name: "years", label: "Years", value: "" }, { name: "image", label: "Photo", value: "", type: "file" }]; setEditModalConfig({ isOpen: true, title: "Add Home", fields, onSave: (data: any) => { const id = Date.now(); const newHome = { id, color: "bg-indigo-500", description: "...", features: [], rooms: [], ...data }; dbUpdate('homes', id, newHome); setEditModalConfig((p: any) => ({...p, isOpen:false})); }, onUpload: handleUpload }); };
   const handleEditHome = () => { const fields = [{ name: "name", label: "Name", value: selectedHome.name }, { name: "address", label: "Address", value: selectedHome.address }, { name: "years", label: "Years", value: selectedHome.years }, { name: "description", label: "Description", value: selectedHome.description, type: "textarea" }, { name: "image", label: "Photo", value: selectedHome.image, type: "file" }]; setEditModalConfig({ isOpen: true, title: "Edit Home", fields, onSave: (data: any) => { const updatedHome = { ...selectedHome, ...data }; dbUpdate('homes', selectedHome.id, updatedHome); setSelectedHome(updatedHome); setEditModalConfig((p: any) => ({...p, isOpen:false})); }, onUpload: handleUpload }); };
@@ -626,7 +626,6 @@ export default function App() {
   const handleDeleteAlbum = (e: any, id: string|number) => { e.stopPropagation(); e.preventDefault(); setConfirmModalConfig({ isOpen: true, title: "Delete", message: "Delete?", onConfirm: () => { dbDelete('albums', id); setConfirmModalConfig((p: any) => ({...p, isOpen:false})); }}); };
   const saveNewEntry = () => { if (!newEntryContent.trim()) return; const id = Date.now(); const newEntry = { id, date: new Date().toISOString(), content: newEntryContent, mood: "Neutral" }; dbUpdate('journal', id, newEntry); setIsCreatingEntry(false); setNewEntryContent(""); };
   const deleteEntry = (id: string|number) => { if(window.confirm("Delete?")) dbDelete('journal', id); };
-  const handleAddFriend = () => { const id = Date.now(); dbUpdate('friends', id, { id, name: "New Friend", metAt: "Loc", frequency: "Often", role: "Friend", color: "bg-indigo-500", details: "...", memories: [] }); };
 
   if (!isAuthenticated) return <LoginScreen onLogin={handleFamilyLogin} correctPin={appSettings.familyPin} />;
 
