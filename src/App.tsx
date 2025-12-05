@@ -132,7 +132,7 @@ const EditorModal = ({ isOpen, title, fields, onClose, onSave, onUpload }: any) 
                 <div className="space-y-4">
                     {fields.map((field: any) => (
                         <div key={field.name}>
-                            <label className="block text-sm font-bold text-slate-500 mb-1 uppercase tracking-wide">{field.label}</label>
+                            <label className="block text-sm font-bold text-slate-500 mb-1 uppercase">{field.label}</label>
                             {field.type === 'textarea' ? (
                                 <textarea value={formData[field.name] || ''} onChange={(e) => handleChange(field.name, e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 focus:border-indigo-400 focus:ring-0 min-h-[100px]" />
                             ) : field.type === 'select' ? (
@@ -208,9 +208,9 @@ const FilterToggle = ({ label, icon, active, onClick, colorClass }: any) => (<bu
 const NavButton = ({ active, onClick, icon, label }: any) => ( <button onClick={onClick} className={`w-full flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-300 ${active ? 'bg-indigo-50 text-indigo-600 scale-105 font-bold' : 'text-slate-400 hover:bg-slate-50'}`}><div>{React.cloneElement(icon, { size: 28 })}</div><span className="text-xs">{label}</span></button> );
 const NavButtonMobile = ({ active, onClick, icon, label }: any) => ( <button onClick={onClick} className={`flex flex-col items-center gap-1 p-2 min-w-[64px] ${active ? 'text-indigo-600 -translate-y-2' : 'text-slate-400'}`}><div>{React.cloneElement(icon, { size: 20 })}</div><span className="text-[10px]">{label}</span></button> );
 
-const TreeBranch = ({ person, allMembers, onSelect }: any) => {
+const TreeBranch = ({ person, allMembers, onSelect, stopRecursion = false }: any) => {
     const spouse = allMembers.find((m: any) => m.id === person.spouseId);
-    const children = allMembers.filter((m: any) => (m.parentId === person.id || (spouse && m.parentId === spouse.id)) && m.id !== person.spouseId);
+    const children = stopRecursion ? [] : allMembers.filter((m: any) => (m.parentId === person.id || (spouse && m.parentId === spouse.id)) && m.id !== person.spouseId);
     return (<div className="flex flex-col items-center px-2"><div className="z-10 relative flex items-center gap-3 mb-4"><FamilyMemberNode member={person} onClick={onSelect} />{spouse && <><div className="h-0.5 w-4 bg-rose-300"></div><FamilyMemberNode member={spouse} onClick={onSelect} /></>}</div>{children.length > 0 && (<div className="flex flex-col items-center w-full"><div className="h-6 w-px bg-slate-300 -mt-4 mb-0"></div>{children.length > 1 && <div className="w-full h-3 border-t border-slate-300 rounded-t-lg mb-3" style={{width: '94%'}}></div>}<div className="flex gap-4 items-start justify-center">{children.map((child: any) => <TreeBranch key={child.id} person={child} allMembers={allMembers} onSelect={onSelect} />)}</div></div>)}</div>);
 };
 
@@ -245,13 +245,10 @@ const FamilyTreeView = ({ familyMembers, viewRootId, setViewRootId, onSelect, zo
     
     // CENTER ON MOUNT
     useEffect(() => {
-        // Delay slightly to allow rendering
         const timer = setTimeout(() => {
             if (scrollContainerRef.current) {
-                 const { scrollWidth, clientWidth, scrollHeight, clientHeight } = scrollContainerRef.current;
-                 // Center Horizontally
+                 const { scrollWidth, clientWidth } = scrollContainerRef.current;
                  scrollContainerRef.current.scrollLeft = (scrollWidth - clientWidth) / 2;
-                 // Position at top with slight padding
                  scrollContainerRef.current.scrollTop = 50;
             }
         }, 100);
@@ -435,16 +432,15 @@ export default function App() {
   
   const [viewRootId, setViewRootId] = useState('jackie');
   const [timelineZoom, setTimelineZoom] = useState(2);
-  const [startYear, setStartYear] = useState(1950); // Removed setter, declared as state
-  const [endYear, setEndYear] = useState(new Date().getFullYear() + 1); // Removed setter
+  const [startYear] = useState(1950); 
+  const [endYear] = useState(new Date().getFullYear() + 1); 
   const [filters, setFilters] = useState({ family: true, work: true, world: true, birthday: true });
 
   const toggleFilter = (key: any) => { setFilters((prev: any) => ({ ...prev, [key]: !prev[key] })); };
-  const [editContent, setEditContent] = useState("");
+  const [editContent] = useState("");
   const [isCreatingEntry, setIsCreatingEntry] = useState(false);
   const [newEntryContent, setNewEntryContent] = useState("");
-  // Removed newEntryDate state, using local variable in save function instead.
-  // Removed journalFilterDate
+  const [newEntryDate] = useState(new Date().toISOString().split('T')[0]);
   const [editingEntryId, setEditingEntryId] = useState(null);
 
   useEffect(() => {
@@ -565,12 +561,6 @@ export default function App() {
   const handleEditEvent = (e: any) => { e.stopPropagation(); const fields = [{ name: "title", label: "Title", value: selectedEvent.title }, { name: "year", label: "Year", value: selectedEvent.year }, { name: "description", label: "Desc", value: selectedEvent.description, type: "textarea" }, { name: "location", label: "Loc", value: selectedEvent.location }, { name: "type", label: "Style", value: selectedEvent.type, type: "select", options: [{value: 'memory', label: 'Standard Card'}, {value: 'headline', label: 'Headline Style'}, {value: 'photo', label: 'Polaroid Photo'}] }, { name: "image", label: "Image", value: selectedEvent.image, type: "file" }]; setEditModalConfig({ isOpen: true, title: "Edit Event", fields, onSave: (data: any) => { const styles = getCategoryStyles(data.category || selectedEvent.category); const updated = { ...selectedEvent, ...data, ...styles }; dbUpdate('timelineEvents', selectedEvent.id, updated); setSelectedEvent(updated); setEditModalConfig((p: any) => ({...p, isOpen:false})); }, onUpload: handleUpload }); };
   const handleDeleteEvent = (e: any) => { e.stopPropagation(); setConfirmModalConfig({isOpen: true, title: "Delete", message: "Delete event?", onConfirm: () => { dbDelete('timelineEvents', selectedEvent.id); setSelectedEvent(null); setConfirmModalConfig((p: any) => ({...p, isOpen:false})); }}); };
   
-  // MEMBER EDIT: Only allow edits, no add/delete for family structure
-  // Removed handleAddMember to enforce fixed structure
-  const handleEditMember = (e: any) => { e.stopPropagation(); const parents = familyMembers.filter(m => m.id !== selectedPerson.id).map(m => ({ value: m.id, label: m.name })); const fields = [{ name: "name", label: "Name", value: selectedPerson.name }, { name: "relation", label: "Relation", value: selectedPerson.relation }, { name: "dob", label: "DOB", value: selectedPerson.dob }, { name: "image", label: "Photo", value: selectedPerson.image, type: "file" }, { name: "details", label: "Details", value: selectedPerson.details, type: "textarea" }]; setEditModalConfig({ isOpen: true, title: "Edit Member", fields, onSave: (data: any) => { const updated = { ...selectedPerson, ...data }; dbUpdate('familyMembers', selectedPerson.id, updated); setSelectedPerson(updated); setEditModalConfig((p: any) => ({...p, isOpen:false})); }, onUpload: handleUpload }); };
-  
-  const handleAddFriend = () => { const id = Date.now(); dbUpdate('friends', id, { id, name: "New Friend", metAt: "Loc", frequency: "Often", role: "Friend", color: "bg-indigo-500", details: "...", memories: [] }); };
-  
   // Friend Selection Handlers
   const handleSelectFriend = (friend: any) => { setSelectedPerson(friend); };
 
@@ -587,9 +577,6 @@ export default function App() {
       } 
   };
   
-  // Edit logic for friends
-  const handleEditPerson = (friend: any) => { setSelectedPerson(friend); };
-
   const handleDeletePersonAny = () => { if (selectedPerson.hasOwnProperty('generation')) { alert("Family structure is fixed."); } else { setConfirmModalConfig({ isOpen: true, title: "Delete", message: "Remove friend?", onConfirm: () => { dbDelete('friends', selectedPerson.id); setSelectedPerson(null); setConfirmModalConfig((p: any) => ({...p, isOpen:false})); }}); } };
   const handleAddHome = () => { const fields = [{ name: "name", label: "Name", value: "" }, { name: "address", label: "Address", value: "" }, { name: "years", label: "Years", value: "" }, { name: "image", label: "Photo", value: "", type: "file" }]; setEditModalConfig({ isOpen: true, title: "Add Home", fields, onSave: (data: any) => { const id = Date.now(); const newHome = { id, color: "bg-indigo-500", description: "...", features: [], rooms: [], ...data }; dbUpdate('homes', id, newHome); setEditModalConfig((p: any) => ({...p, isOpen:false})); }, onUpload: handleUpload }); };
   const handleEditHome = () => { const fields = [{ name: "name", label: "Name", value: selectedHome.name }, { name: "address", label: "Address", value: selectedHome.address }, { name: "years", label: "Years", value: selectedHome.years }, { name: "description", label: "Description", value: selectedHome.description, type: "textarea" }, { name: "image", label: "Photo", value: selectedHome.image, type: "file" }]; setEditModalConfig({ isOpen: true, title: "Edit Home", fields, onSave: (data: any) => { const updatedHome = { ...selectedHome, ...data }; dbUpdate('homes', selectedHome.id, updatedHome); setSelectedHome(updatedHome); setEditModalConfig((p: any) => ({...p, isOpen:false})); }, onUpload: handleUpload }); };
@@ -639,6 +626,7 @@ export default function App() {
   const handleDeleteAlbum = (e: any, id: string|number) => { e.stopPropagation(); e.preventDefault(); setConfirmModalConfig({ isOpen: true, title: "Delete", message: "Delete?", onConfirm: () => { dbDelete('albums', id); setConfirmModalConfig((p: any) => ({...p, isOpen:false})); }}); };
   const saveNewEntry = () => { if (!newEntryContent.trim()) return; const id = Date.now(); const newEntry = { id, date: new Date().toISOString(), content: newEntryContent, mood: "Neutral" }; dbUpdate('journal', id, newEntry); setIsCreatingEntry(false); setNewEntryContent(""); };
   const deleteEntry = (id: string|number) => { if(window.confirm("Delete?")) dbDelete('journal', id); };
+  const handleAddFriend = () => { const id = Date.now(); dbUpdate('friends', id, { id, name: "New Friend", metAt: "Loc", frequency: "Often", role: "Friend", color: "bg-indigo-500", details: "...", memories: [] }); };
 
   if (!isAuthenticated) return <LoginScreen onLogin={handleFamilyLogin} correctPin={appSettings.familyPin} />;
 
@@ -698,7 +686,7 @@ export default function App() {
                   <p className="text-lg font-medium leading-snug">"{quickPrompt.text}"</p>
                </div>
             </div>
-            <div className="text-center text-slate-300 text-xs mt-12">Version 1.7 - Stable Sync</div>
+            <div className="text-center text-slate-300 text-xs mt-12">Version 1.8 - Clean Build</div>
           </div>
         )}
 
@@ -729,7 +717,7 @@ export default function App() {
         )}
 
         {activeTab === 'family' && (
-            <FamilyTreeView familyMembers={familyMembers} viewRootId={viewRootId} setViewRootId={setViewRootId} onSelect={setSelectedPerson} zoom={zoom} scrollContainerRef={scrollContainerRef} handleZoomIn={handleZoomIn} handleZoomOut={handleZoomOut} handleResetZoom={handleResetZoom} handleAddMember={null} isEditMode={isEditMode} />
+            <FamilyTreeView familyMembers={familyMembers} viewRootId={viewRootId} setViewRootId={setViewRootId} onSelect={setSelectedPerson} zoom={zoom} scrollContainerRef={scrollContainerRef} handleZoomIn={handleZoomIn} handleZoomOut={handleZoomOut} handleResetZoom={handleResetZoom} isEditMode={isEditMode} />
         )}
 
         {/* ... Other tabs (Gallery, Friends, Houses, Journal) ... */}
@@ -758,7 +746,7 @@ export default function App() {
                     {isEditMode && <button onClick={handleAddFriend} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"><Plus size={18} /> Add Friend</button>}
                 </header>
                 <div className="grid grid-cols-1 gap-4">
-                    {friends.map(friend => (<FriendCard key={friend.id} friend={friend} onClick={handleEditPerson} />))}
+                    {friends.map(friend => (<FriendCard key={friend.id} friend={friend} onClick={handleSelectFriend} />))}
                 </div>
              </div>
         )}
