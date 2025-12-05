@@ -22,16 +22,7 @@ const firebaseConfig = {
   measurementId: "G-E97GVQC3W7"
 };
 
-// --- HELPERS (CRITICAL FOR STABILITY) ---
-
-// 1. Safe Render: Converts objects/nulls to strings to prevent "Object not valid" errors
-const safeRender = (val: any) => {
-  if (val === null || val === undefined) return "";
-  if (typeof val === 'object') return ""; 
-  return String(val);
-};
-
-// 2. Icon Map
+// --- HELPERS ---
 const ICON_MAP: any = {
   baby: <Baby className="w-5 h-5 text-white" />,
   heart: <Heart className="w-5 h-5 text-white" />,
@@ -47,7 +38,6 @@ const ICON_MAP: any = {
   note: <StickyNote className="w-5 h-5 text-white" />
 };
 
-// 3. Styles
 const getCategoryStyles = (category: any) => {
     switch(category) {
         case 'work': return { icon: 'briefcase', color: 'bg-blue-600', text: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200' };
@@ -55,6 +45,12 @@ const getCategoryStyles = (category: any) => {
         case 'birthday': return { icon: 'cake', color: 'bg-rose-400', text: 'text-rose-500', bg: 'bg-rose-50', border: 'border-rose-200' };
         case 'family': default: return { icon: 'heart', color: 'bg-pink-500', text: 'text-pink-500', bg: 'bg-pink-50', border: 'border-pink-200' };
     }
+};
+
+const safeRender = (val: any) => {
+  if (val === null || val === undefined) return "";
+  if (typeof val === 'object') return ""; 
+  return String(val);
 };
 
 // --- DEFAULT DATA ---
@@ -89,7 +85,7 @@ const DEFAULT_TIMELINE = [
 const DEFAULT_JOURNAL = [{ id: '1', date: "2023-10-24", content: "Had a lovely cup of tea.", mood: "Happy" }];
 const DEFAULT_ALBUMS = [{ id: '1', title: 'Family Holidays', subtitle: 'Summer 1995', color: 'bg-blue-500', link: '', coverImage: '' }];
 
-// --- UI COMPONENTS (Must be defined BEFORE App) ---
+// --- COMPONENTS ---
 
 const Modal = ({ isOpen, onClose, children, color = "bg-white", zIndex = "z-50" }: any) => {
   if (!isOpen) return null;
@@ -122,7 +118,7 @@ const EditorModal = ({ isOpen, title, fields, onClose, onSave, onUpload }: any) 
         if (file && onUpload) {
             setUploading(true);
             try { const url = await onUpload(file); handleChange(name, url); } 
-            catch (err) { console.error(err); alert("Upload failed."); } 
+            catch (err) { console.error(err); alert("Upload failed. Check console."); } 
             finally { setUploading(false); }
         }
     };
@@ -136,7 +132,7 @@ const EditorModal = ({ isOpen, title, fields, onClose, onSave, onUpload }: any) 
                 <div className="space-y-4">
                     {fields.map((field: any) => (
                         <div key={field.name}>
-                            <label className="block text-sm font-bold text-slate-500 mb-1 uppercase">{field.label}</label>
+                            <label className="block text-sm font-bold text-slate-500 mb-1 uppercase tracking-wide">{field.label}</label>
                             {field.type === 'textarea' ? (
                                 <textarea value={formData[field.name] || ''} onChange={(e) => handleChange(field.name, e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 focus:border-indigo-400 focus:ring-0 min-h-[100px]" />
                             ) : field.type === 'select' ? (
@@ -212,9 +208,9 @@ const FilterToggle = ({ label, icon, active, onClick, colorClass }: any) => (<bu
 const NavButton = ({ active, onClick, icon, label }: any) => ( <button onClick={onClick} className={`w-full flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-300 ${active ? 'bg-indigo-50 text-indigo-600 scale-105 font-bold' : 'text-slate-400 hover:bg-slate-50'}`}><div>{React.cloneElement(icon, { size: 28 })}</div><span className="text-xs">{label}</span></button> );
 const NavButtonMobile = ({ active, onClick, icon, label }: any) => ( <button onClick={onClick} className={`flex flex-col items-center gap-1 p-2 min-w-[64px] ${active ? 'text-indigo-600 -translate-y-2' : 'text-slate-400'}`}><div>{React.cloneElement(icon, { size: 20 })}</div><span className="text-[10px]">{label}</span></button> );
 
-const TreeBranch = ({ person, allMembers, onSelect, stopRecursion = false }: any) => {
+const TreeBranch = ({ person, allMembers, onSelect }: any) => {
     const spouse = allMembers.find((m: any) => m.id === person.spouseId);
-    const children = stopRecursion ? [] : allMembers.filter((m: any) => (m.parentId === person.id || (spouse && m.parentId === spouse.id)) && m.id !== person.spouseId);
+    const children = allMembers.filter((m: any) => (m.parentId === person.id || (spouse && m.parentId === spouse.id)) && m.id !== person.spouseId);
     return (<div className="flex flex-col items-center px-2"><div className="z-10 relative flex items-center gap-3 mb-4"><FamilyMemberNode member={person} onClick={onSelect} />{spouse && <><div className="h-0.5 w-4 bg-rose-300"></div><FamilyMemberNode member={spouse} onClick={onSelect} /></>}</div>{children.length > 0 && (<div className="flex flex-col items-center w-full"><div className="h-6 w-px bg-slate-300 -mt-4 mb-0"></div>{children.length > 1 && <div className="w-full h-3 border-t border-slate-300 rounded-t-lg mb-3" style={{width: '94%'}}></div>}<div className="flex gap-4 items-start justify-center">{children.map((child: any) => <TreeBranch key={child.id} person={child} allMembers={allMembers} onSelect={onSelect} />)}</div></div>)}</div>);
 };
 
@@ -282,7 +278,6 @@ const FamilyTreeView = ({ familyMembers, viewRootId, setViewRootId, onSelect, zo
         <div className="h-[80vh] border-2 border-slate-100 rounded-2xl bg-slate-50 relative overflow-hidden cursor-grab active:cursor-grabbing" ref={scrollContainerRef} onMouseDown={handleMouseDown} onMouseLeave={handleMouseLeave} onMouseUp={handleMouseUp} onMouseMove={handleMouseMove}>
            <div className="absolute top-4 right-4 flex gap-2 z-20"><button onClick={handleZoomIn} className="bg-white p-2 rounded shadow"><ZoomIn size={20}/></button><button onClick={handleZoomOut} className="bg-white p-2 rounded shadow"><ZoomOut size={20}/></button><button onClick={handleResetZoom} className="bg-white p-2 rounded shadow"><Maximize size={20}/></button></div>
            <header className="absolute top-4 left-0 right-0 text-center z-10 pointer-events-none"><h2 className="text-3xl font-bold text-slate-800">Family Tree</h2></header>
-           {/* Ensure canvas is large enough to pan */}
            <div className="min-w-[2000px] min-h-[1500px] flex flex-col items-center justify-start pt-32 origin-top-center transition-transform duration-200" style={{transform: `scale(${zoom})`}}>
               {parents.length > 0 && (
                   <div className="flex flex-col items-center mb-12">
@@ -430,6 +425,7 @@ export default function App() {
   const [journalEntries, setJournalEntries] = useState<any[]>([]);
   const [albums, setAlbums] = useState<any[]>([]);
   const [timelineEvents, setTimelineEvents] = useState<any[]>([]);
+  // INITIALIZE WITH DEFAULT FAMILY TO PREVENT BLANK SCREEN
   const [familyMembers, setFamilyMembers] = useState<any[]>(DEFAULT_FAMILY); 
   const [friends, setFriends] = useState<any[]>([]);
   const [homes, setHomes] = useState<any[]>([]);
@@ -439,17 +435,17 @@ export default function App() {
   
   const [viewRootId, setViewRootId] = useState('jackie');
   const [timelineZoom, setTimelineZoom] = useState(2);
-  const [startYear, setStartYear] = useState(1950);
-  const [endYear, setEndYear] = useState(new Date().getFullYear() + 1);
+  const [startYear, setStartYear] = useState(1950); // Removed setter, declared as state
+  const [endYear, setEndYear] = useState(new Date().getFullYear() + 1); // Removed setter
   const [filters, setFilters] = useState({ family: true, work: true, world: true, birthday: true });
 
   const toggleFilter = (key: any) => { setFilters((prev: any) => ({ ...prev, [key]: !prev[key] })); };
   const [editContent, setEditContent] = useState("");
   const [isCreatingEntry, setIsCreatingEntry] = useState(false);
   const [newEntryContent, setNewEntryContent] = useState("");
-  const [newEntryDate, setNewEntryDate] = useState(new Date().toISOString().split('T')[0]);
-  // const [journalFilterDate, setJournalFilterDate] = useState("");
-  // const [editingEntryId, setEditingEntryId] = useState(null);
+  // Removed newEntryDate state, using local variable in save function instead.
+  // Removed journalFilterDate
+  const [editingEntryId, setEditingEntryId] = useState(null);
 
   useEffect(() => {
     const storedAuth = localStorage.getItem('familyAuth');
@@ -570,7 +566,8 @@ export default function App() {
   const handleDeleteEvent = (e: any) => { e.stopPropagation(); setConfirmModalConfig({isOpen: true, title: "Delete", message: "Delete event?", onConfirm: () => { dbDelete('timelineEvents', selectedEvent.id); setSelectedEvent(null); setConfirmModalConfig((p: any) => ({...p, isOpen:false})); }}); };
   
   // MEMBER EDIT: Only allow edits, no add/delete for family structure
-  const handleEditMember = (e: any) => { e.stopPropagation(); const fields = [{ name: "name", label: "Name", value: selectedPerson.name }, { name: "relation", label: "Relation", value: selectedPerson.relation }, { name: "dob", label: "DOB", value: selectedPerson.dob }, { name: "image", label: "Photo", value: selectedPerson.image, type: "file" }, { name: "details", label: "Details", value: selectedPerson.details, type: "textarea" }]; setEditModalConfig({ isOpen: true, title: "Edit Member", fields, onSave: (data: any) => { const updated = { ...selectedPerson, ...data }; dbUpdate('familyMembers', selectedPerson.id, updated); setSelectedPerson(updated); setEditModalConfig((p: any) => ({...p, isOpen:false})); }, onUpload: handleUpload }); };
+  // Removed handleAddMember to enforce fixed structure
+  const handleEditMember = (e: any) => { e.stopPropagation(); const parents = familyMembers.filter(m => m.id !== selectedPerson.id).map(m => ({ value: m.id, label: m.name })); const fields = [{ name: "name", label: "Name", value: selectedPerson.name }, { name: "relation", label: "Relation", value: selectedPerson.relation }, { name: "dob", label: "DOB", value: selectedPerson.dob }, { name: "image", label: "Photo", value: selectedPerson.image, type: "file" }, { name: "details", label: "Details", value: selectedPerson.details, type: "textarea" }]; setEditModalConfig({ isOpen: true, title: "Edit Member", fields, onSave: (data: any) => { const updated = { ...selectedPerson, ...data }; dbUpdate('familyMembers', selectedPerson.id, updated); setSelectedPerson(updated); setEditModalConfig((p: any) => ({...p, isOpen:false})); }, onUpload: handleUpload }); };
   
   const handleAddFriend = () => { const id = Date.now(); dbUpdate('friends', id, { id, name: "New Friend", metAt: "Loc", frequency: "Often", role: "Friend", color: "bg-indigo-500", details: "...", memories: [] }); };
   
@@ -761,7 +758,7 @@ export default function App() {
                     {isEditMode && <button onClick={handleAddFriend} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"><Plus size={18} /> Add Friend</button>}
                 </header>
                 <div className="grid grid-cols-1 gap-4">
-                    {friends.map(friend => (<FriendCard key={friend.id} friend={friend} onClick={handleSelectFriend} />))}
+                    {friends.map(friend => (<FriendCard key={friend.id} friend={friend} onClick={handleEditPerson} />))}
                 </div>
              </div>
         )}
