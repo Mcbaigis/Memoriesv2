@@ -355,7 +355,7 @@ const FamilyTreeView = ({ familyMembers, viewRootId, setViewRootId, onSelect, zo
 
            <div className="absolute top-4 right-4 flex gap-2 z-20"><button onClick={handleZoomIn} className="bg-white p-2 rounded shadow"><ZoomIn size={20}/></button><button onClick={handleZoomOut} className="bg-white p-2 rounded shadow"><ZoomOut size={20}/></button><button onClick={handleResetZoom} className="bg-white p-2 rounded shadow"><Maximize size={20}/></button></div>
            <header className="absolute top-4 left-0 right-0 text-center z-10 pointer-events-none"><h2 className="text-3xl font-bold text-slate-800">Family Tree</h2></header>
-           <div className="min-w-[2000px] min-h-[1500px] flex flex-col items-center justify-start pt-32 origin-top-center transition-transform duration-200" style={{transform: `scale(${zoom})`}}>
+           <div className="w-fit min-w-full min-h-full flex flex-col items-center justify-start pt-32 pb-32 px-10 origin-top-center transition-transform duration-200" style={{transform: `scale(${zoom})`}}>
               {parents.length > 0 && (
                   <div className="flex flex-col items-center mb-12">
                       <div className="flex gap-16">{parents.map((p: any) => <TreeBranch key={p.id} person={p} allMembers={familyMembers} onSelect={onSelect} stopRecursion={true} />)}</div>
