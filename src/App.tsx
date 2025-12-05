@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Heart, Calendar, MapPin, Briefcase, Camera, Home, Music, X, ChevronRight, Sun, Baby, Users, Star, Globe, Smile, Armchair, Book, Image as ImageIcon, Edit2, Save, Plus, Lock, Unlock, Trash2, ArrowLeft, ArrowRight, Maximize, Upload, ZoomIn, ZoomOut, Cake, Loader2, Newspaper, StickyNote
+  Heart, Calendar, MapPin, Briefcase, Camera, Home, Music, X, ChevronRight, Sun, Baby, Users, Star, Globe, Smile, Armchair, Book, Image as ImageIcon, Edit2, Save, Plus, Lock, Unlock, Trash2, ArrowLeft, ArrowRight, Maximize, Upload, ZoomIn, ZoomOut, Cake, Loader2, Newspaper, StickyNote, Settings, LogOut
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -11,7 +11,7 @@ import {
 } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
-// --- YOUR FIREBASE CONFIGURATION ---
+// --- CONFIGURATION ---
 const firebaseConfig = {
   apiKey: "AIzaSyBDlM1qFMBNaqTg6jtFyYXfGX3q8Scdd8I",
   authDomain: "memories-f509b.firebaseapp.com",
@@ -22,7 +22,16 @@ const firebaseConfig = {
   measurementId: "G-E97GVQC3W7"
 };
 
-// --- ICON MAPPING ---
+// --- HELPERS (CRITICAL FOR STABILITY) ---
+
+// 1. Safe Render: Converts objects/nulls to strings to prevent "Object not valid" errors
+const safeRender = (val: any) => {
+  if (val === null || val === undefined) return "";
+  if (typeof val === 'object') return ""; 
+  return String(val);
+};
+
+// 2. Icon Map
 const ICON_MAP: any = {
   baby: <Baby className="w-5 h-5 text-white" />,
   heart: <Heart className="w-5 h-5 text-white" />,
@@ -38,7 +47,7 @@ const ICON_MAP: any = {
   note: <StickyNote className="w-5 h-5 text-white" />
 };
 
-// --- STYLE HELPER ---
+// 3. Styles
 const getCategoryStyles = (category: any) => {
     switch(category) {
         case 'work': return { icon: 'briefcase', color: 'bg-blue-600', text: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200' };
@@ -50,44 +59,37 @@ const getCategoryStyles = (category: any) => {
 
 // --- DEFAULT DATA ---
 const DEFAULT_SETTINGS = { siteTitle: "Jackie's Memory Garden", adminPin: "1954", familyPin: "1234" };
-
-const DEFAULT_HOMES = [
-  { id: 'bungalow', name: 'The Bungalow', address: '12 Garden Row, Bristol', years: '2015 - Present', color: 'bg-indigo-500', image: '', description: "Your lovely current home.", features: ["Blue Conservatory", "Veg Patch"], rooms: [] },
-  { id: 'cottage', name: 'The Old Cottage', address: '42 Maple Avenue', years: '1980 - 2015', color: 'bg-green-600', image: '', description: "The family home where the kids grew up.", features: ["Oak Tree", "Sunday Roasts"], rooms: [] }
-];
-const DEFAULT_FRIENDS = [
-  { id: 'margaret', name: 'Margaret Hill', metAt: 'The Library', frequency: 'Tuesdays', role: 'Best Friend', color: 'bg-emerald-500', image: '', details: "Met at work in 1985.", memories: [] }
-];
+const DEFAULT_HOMES = [{ id: 'bungalow', name: 'The Bungalow', address: '12 Garden Row', years: '2015 - Present', color: 'bg-indigo-500', image: '', description: "Your lovely home.", features: [], rooms: [] }];
+const DEFAULT_FRIENDS = [{ id: 'margaret', name: 'Margaret Hill', metAt: 'The Library', frequency: 'Tuesdays', role: 'Best Friend', color: 'bg-emerald-500', image: '', details: "Met at work in 1985.", memories: [] }];
 const DEFAULT_FAMILY = [
-  { id: 'ann', name: 'Ann Rankin', relation: 'Mum', generation: 0, role: 'Mother', color: 'bg-violet-400', image: '', details: "Jackie's Mum.", memories: [], spouseId: 'abbie', dob: '1928' },
-  { id: 'abbie', name: 'Abbie Rankin', relation: 'Dad', generation: 0, role: 'Father', color: 'bg-slate-500', image: '', details: "Jackie's Dad.", memories: [], spouseId: 'ann', dob: '1925' },
-  { id: 'jackie', name: 'Jackie', relation: 'Me', generation: 1, role: 'Matriarch', color: 'bg-rose-500', image: '', details: "Born 1954.", memories: [], parentId: 'ann', spouseId: 'kenny', dob: '1954' },
-  { id: 'kenny', name: 'Kenny', relation: 'Husband', generation: 1, role: 'Husband', color: 'bg-blue-600', image: '', details: "Jackie's Husband.", memories: [], spouseId: 'jackie', dob: '1952' },
-  { id: 'pam', name: 'Pam', relation: 'Sister', generation: 1, role: 'Sister', color: 'bg-purple-400', image: '', details: "Jackie's sister.", memories: [], parentId: 'ann' },
-  { id: 'lindsay', name: 'Lindsay', relation: 'Sister', generation: 1, role: 'Sister', color: 'bg-purple-400', image: '', details: "Jackie's sister.", memories: [], parentId: 'ann', spouseId: 'eugene' },
-  { id: 'eugene', name: 'Eugene', relation: 'Brother-in-Law', generation: 1, role: 'Brother-in-Law', color: 'bg-slate-400', image: '', details: "Lindsay's husband.", memories: [], spouseId: 'lindsay' },
-  { id: 'kerry', name: 'Kerry', relation: 'Daughter', generation: 2, role: 'Daughter', color: 'bg-pink-500', image: '', details: "Daughter of Jackie & Kenny.", memories: [], parentId: 'jackie', spouseId: 'craig', dob: '1982' },
-  { id: 'craig', name: 'Craig', relation: 'Partner', generation: 2, role: 'Son-in-Law', color: 'bg-slate-400', image: '', details: "Kerry's Partner.", memories: [], spouseId: 'kerry' },
-  { id: 'grant', name: 'Grant', relation: 'Son', generation: 2, role: 'Son', color: 'bg-teal-500', image: '', details: "Son of Jackie & Kenny.", memories: [], parentId: 'jackie', spouseId: 'tina', dob: '1985' },
-  { id: 'tina', name: 'Tina', relation: 'Wife', generation: 2, role: 'Daughter-in-Law', color: 'bg-slate-400', image: '', details: "Grant's Wife.", memories: [], spouseId: 'grant' },
-  { id: 'jenna', name: 'Jenna', relation: 'Daughter', generation: 2, role: 'Daughter', color: 'bg-pink-500', image: '', details: "Daughter of Jackie & Kenny.", memories: [], parentId: 'jackie', spouseId: 'cammy', dob: '1990' },
-  { id: 'cammy', name: 'Cammy', relation: 'Fiance', generation: 2, role: 'Son-in-Law', color: 'bg-slate-400', image: '', details: "Jenna's Fiance.", memories: [], spouseId: 'jenna' },
-  { id: 'murray', name: 'Murray', relation: 'Nephew', generation: 2, role: 'Nephew', color: 'bg-indigo-400', image: '', details: "Pam's Son.", memories: [], parentId: 'pam' },
-  { id: 'abby', name: 'Abby', relation: 'Niece', generation: 2, role: 'Niece', color: 'bg-fuchsia-400', image: '', details: "Pam's Daughter.", memories: [], parentId: 'pam' },
-  { id: 'lewis', name: 'Lewis', relation: 'Nephew', generation: 2, role: 'Nephew', color: 'bg-indigo-400', image: '', details: "Lindsay's Son.", memories: [], parentId: 'lindsay' },
-  { id: 'faye', name: 'Faye', relation: 'Niece', generation: 2, role: 'Niece', color: 'bg-fuchsia-400', image: '', details: "Lindsay's Daughter.", memories: [], parentId: 'lindsay' },
-  { id: 'paige', name: 'Paige', relation: 'Granddaughter', generation: 3, role: 'Granddaughter', color: 'bg-amber-400', image: '', details: "Kerry's Daughter.", memories: [], parentId: 'kerry' },
-  { id: 'anna', name: 'Anna', relation: 'Granddaughter', generation: 3, role: 'Granddaughter', color: 'bg-amber-400', image: '', details: "Kerry's Daughter.", memories: [], parentId: 'kerry' },
-  { id: 'willow', name: 'Willow', relation: 'Granddaughter', generation: 3, role: 'Granddaughter', color: 'bg-amber-400', image: '', details: "Grant's Daughter.", memories: [], parentId: 'grant' }
+  { id: 'ann', name: 'Ann Rankin', relation: 'Mum', generation: 0, role: 'Mother', color: 'bg-violet-400', image: '', details: "Jackie's Mum.", spouseId: 'abbie', dob: '1928' },
+  { id: 'abbie', name: 'Abbie Rankin', relation: 'Dad', generation: 0, role: 'Father', color: 'bg-slate-500', image: '', details: "Jackie's Dad.", spouseId: 'ann', dob: '1925' },
+  { id: 'jackie', name: 'Jackie', relation: 'Me', generation: 1, role: 'Matriarch', color: 'bg-rose-500', image: '', details: "Born 1954.", parentId: 'ann', spouseId: 'kenny', dob: '1954' },
+  { id: 'kenny', name: 'Kenny', relation: 'Husband', generation: 1, role: 'Husband', color: 'bg-blue-600', image: '', details: "Jackie's Husband.", spouseId: 'jackie', dob: '1952' },
+  { id: 'pam', name: 'Pam', relation: 'Sister', generation: 1, role: 'Sister', color: 'bg-purple-400', image: '', details: "Jackie's sister.", parentId: 'ann' },
+  { id: 'lindsay', name: 'Lindsay', relation: 'Sister', generation: 1, role: 'Sister', color: 'bg-purple-400', image: '', details: "Jackie's sister.", parentId: 'ann', spouseId: 'eugene' },
+  { id: 'eugene', name: 'Eugene', relation: 'Brother-in-Law', generation: 1, role: 'Brother-in-Law', color: 'bg-slate-400', image: '', details: "Lindsay's husband.", spouseId: 'lindsay' },
+  { id: 'kerry', name: 'Kerry', relation: 'Daughter', generation: 2, role: 'Daughter', color: 'bg-pink-500', image: '', details: "Daughter of Jackie & Kenny.", parentId: 'jackie', spouseId: 'craig', dob: '1982' },
+  { id: 'craig', name: 'Craig', relation: 'Partner', generation: 2, role: 'Son-in-Law', color: 'bg-slate-400', image: '', details: "Kerry's Partner.", spouseId: 'kerry' },
+  { id: 'grant', name: 'Grant', relation: 'Son', generation: 2, role: 'Son', color: 'bg-teal-500', image: '', details: "Son of Jackie & Kenny.", parentId: 'jackie', spouseId: 'tina', dob: '1985' },
+  { id: 'tina', name: 'Tina', relation: 'Wife', generation: 2, role: 'Daughter-in-Law', color: 'bg-slate-400', image: '', details: "Grant's Wife.", spouseId: 'grant' },
+  { id: 'jenna', name: 'Jenna', relation: 'Daughter', generation: 2, role: 'Daughter', color: 'bg-pink-500', image: '', details: "Daughter of Jackie & Kenny.", parentId: 'jackie', spouseId: 'cammy', dob: '1990' },
+  { id: 'cammy', name: 'Cammy', relation: 'Fiance', generation: 2, role: 'Son-in-Law', color: 'bg-slate-400', image: '', details: "Jenna's Fiance.", spouseId: 'jenna' },
+  { id: 'murray', name: 'Murray', relation: 'Nephew', generation: 2, role: 'Nephew', color: 'bg-indigo-400', image: '', details: "Pam's Son.", parentId: 'pam' },
+  { id: 'abby', name: 'Abby', relation: 'Niece', generation: 2, role: 'Niece', color: 'bg-fuchsia-400', image: '', details: "Pam's Daughter.", parentId: 'pam' },
+  { id: 'lewis', name: 'Lewis', relation: 'Nephew', generation: 2, role: 'Nephew', color: 'bg-indigo-400', image: '', details: "Lindsay's Son.", parentId: 'lindsay' },
+  { id: 'faye', name: 'Faye', relation: 'Niece', generation: 2, role: 'Niece', color: 'bg-fuchsia-400', image: '', details: "Lindsay's Daughter.", parentId: 'lindsay' },
+  { id: 'paige', name: 'Paige', relation: 'Granddaughter', generation: 3, role: 'Granddaughter', color: 'bg-amber-400', image: '', details: "Kerry's Daughter.", parentId: 'kerry' },
+  { id: 'anna', name: 'Anna', relation: 'Granddaughter', generation: 3, role: 'Granddaughter', color: 'bg-amber-400', image: '', details: "Kerry's Daughter.", parentId: 'kerry' },
+  { id: 'willow', name: 'Willow', relation: 'Granddaughter', generation: 3, role: 'Granddaughter', color: 'bg-amber-400', image: '', details: "Grant's Daughter.", parentId: 'grant' }
 ];
 const DEFAULT_TIMELINE = [
-  { year: 1976, title: "Wedding Day", category: "family", icon: "heart", color: "bg-red-500", description: "Married Kenny on a sunny Saturday.", location: "St. Mary's Church", type: "memory" },
-  { year: 1989, title: "Berlin Wall Falls", category: "world", icon: "globe", color: "bg-slate-600", description: "Watched the news all night.", location: "Berlin", type: "headline" },
+  { year: 1976, title: "Wedding Day", category: "family", icon: "heart", color: "bg-red-500", description: "Married Kenny.", location: "St. Mary's", type: "memory" }
 ];
 const DEFAULT_JOURNAL = [{ id: '1', date: "2023-10-24", content: "Had a lovely cup of tea.", mood: "Happy" }];
-const DEFAULT_ALBUMS = [{ id: '1', title: 'Family Holidays', subtitle: 'Summer 1995', color: 'bg-blue-500', link: 'https://photos.google.com', coverImage: '' }];
+const DEFAULT_ALBUMS = [{ id: '1', title: 'Family Holidays', subtitle: 'Summer 1995', color: 'bg-blue-500', link: '', coverImage: '' }];
 
-// --- COMPONENTS ---
+// --- UI COMPONENTS (Must be defined BEFORE App) ---
 
 const Modal = ({ isOpen, onClose, children, color = "bg-white", zIndex = "z-50" }: any) => {
   if (!isOpen) return null;
@@ -120,7 +122,7 @@ const EditorModal = ({ isOpen, title, fields, onClose, onSave, onUpload }: any) 
         if (file && onUpload) {
             setUploading(true);
             try { const url = await onUpload(file); handleChange(name, url); } 
-            catch (err) { console.error(err); alert("Upload failed. Check console."); } 
+            catch (err) { console.error(err); alert("Upload failed."); } 
             finally { setUploading(false); }
         }
     };
@@ -134,7 +136,7 @@ const EditorModal = ({ isOpen, title, fields, onClose, onSave, onUpload }: any) 
                 <div className="space-y-4">
                     {fields.map((field: any) => (
                         <div key={field.name}>
-                            <label className="block text-sm font-bold text-slate-500 mb-1 uppercase tracking-wide">{field.label}</label>
+                            <label className="block text-sm font-bold text-slate-500 mb-1 uppercase">{field.label}</label>
                             {field.type === 'textarea' ? (
                                 <textarea value={formData[field.name] || ''} onChange={(e) => handleChange(field.name, e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 focus:border-indigo-400 focus:ring-0 min-h-[100px]" />
                             ) : field.type === 'select' ? (
@@ -203,7 +205,7 @@ const LoginScreen = ({ onLogin, correctPin }: any) => {
 }
 
 // --- NODES ---
-const FamilyMemberNode = ({ member, onClick }: any) => ( <button onClick={() => onClick(member)} className="relative flex flex-col items-center group hover:-translate-y-1 transition-transform"><div className={`w-20 h-20 rounded-full ${member.color} flex items-center justify-center mb-2 shadow-lg border-2 border-white overflow-hidden`}>{member.image ? <img src={member.image} className="w-full h-full object-cover"/> : <span className="text-2xl font-bold text-white opacity-95">{member.name.charAt(0)}</span>}</div><div className="bg-white/90 px-3 py-1.5 rounded-lg shadow-sm border text-center min-w-[90px]"><h3 className="font-bold text-slate-800 text-xs">{member.name.split(' ')[0]}</h3><p className="text-indigo-500 font-medium text-[10px] uppercase">{member.relation}</p></div></button>);
+const FamilyMemberNode = ({ member, onClick }: any) => ( <button onClick={() => onClick(member)} className="relative flex flex-col items-center group hover:-translate-y-1 transition-transform"><div className={`w-20 h-20 rounded-full ${member.color} flex items-center justify-center mb-2 shadow-lg border-2 border-white overflow-hidden`}>{member.image ? <img src={member.image} className="w-full h-full object-cover"/> : <span className="text-2xl font-bold text-white opacity-95">{member.name.charAt(0)}</span>}</div><div className="bg-white/90 px-3 py-1.5 rounded-lg shadow-sm border text-center min-w-[90px]"><h3 className="font-bold text-slate-800 text-xs">{safeRender(member.name).split(' ')[0]}</h3><p className="text-indigo-500 font-medium text-[10px] uppercase">{safeRender(member.relation)}</p></div></button>);
 const FriendCard = ({ friend, onClick }: any) => (<button onClick={() => onClick(friend)} className="bg-white p-6 rounded-3xl shadow-sm border hover:shadow-xl transition-all w-full text-left flex gap-5 items-center"><div className={`w-16 h-16 rounded-full ${friend.color} flex-shrink-0 flex items-center justify-center overflow-hidden`}>{friend.image ? <img src={friend.image} className="w-full h-full object-cover"/> : <span className="text-2xl font-bold text-white">{friend.name.charAt(0)}</span>}</div><div><h3 className="font-bold text-lg">{friend.name}</h3><div className="flex flex-col gap-1 text-sm"><div className="flex items-center gap-2 text-indigo-500 font-medium"><MapPin size={14} /> Met: {friend.metAt}</div></div></div><ChevronRight className="text-slate-300 group-hover:text-indigo-400 transition-colors" /></button>);
 const HomeCard = ({ home, onClick }: any) => (<button onClick={() => onClick(home)} className="group relative w-full overflow-hidden rounded-3xl shadow-md hover:shadow-2xl transition-all aspect-[4/3]"><div className={`absolute inset-0 ${home.color}`}>{home.image ? <img src={home.image} className="w-full h-full object-cover opacity-90"/> : <Home size={80} className="text-white/30 m-auto mt-12"/>}</div><div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-6 text-left"><h3 className="text-2xl font-bold text-white">{home.name}</h3><p className="text-white/80 text-sm">{home.address}</p></div></button>);
 const FilterToggle = ({ label, icon, active, onClick, colorClass }: any) => (<button onClick={onClick} className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-all ${active ? `${colorClass} text-white border-transparent shadow-md` : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300'}`}>{React.cloneElement(icon, { size: 16 })}<span className="font-bold text-sm">{label}</span>{active && <span className="ml-1 bg-white/20 px-1.5 rounded text-xs">✓</span>}</button>);
@@ -217,7 +219,7 @@ const TreeBranch = ({ person, allMembers, onSelect, stopRecursion = false }: any
 };
 
 // --- SEPARATE FAMILY TREE VIEW COMPONENT ---
-const FamilyTreeView = ({ familyMembers, viewRootId, setViewRootId, onSelect, zoom, scrollContainerRef, handleZoomIn, handleZoomOut, handleResetZoom, handleAddMember, isEditMode }: any) => {
+const FamilyTreeView = ({ familyMembers, viewRootId, setViewRootId, onSelect, zoom, scrollContainerRef, handleZoomIn, handleZoomOut, handleResetZoom, isEditMode }: any) => {
     const [isDragging, setIsDragging] = useState(false);
     const [startX, setStartX] = useState(0);
     const [startY, setStartY] = useState(0);
@@ -261,12 +263,12 @@ const FamilyTreeView = ({ familyMembers, viewRootId, setViewRootId, onSelect, zo
     }, []);
 
     const currentRoot = familyMembers.find((m: any) => m.id === viewRootId) || familyMembers[0];
-    let parents = [];
-    let siblings = [];
+    let parents: any[] = [];
+    let siblings: any[] = [];
     
     if (currentRoot) {
         if (currentRoot.parentId) {
-            const directParent: any[] = familyMembers.find((m: any) => m.id === currentRoot.parentId);
+            const directParent = familyMembers.find((m: any) => m.id === currentRoot.parentId);
             parents = directParent ? [directParent] : [];
         }
         if (viewRootId === 'jackie') {
@@ -280,6 +282,7 @@ const FamilyTreeView = ({ familyMembers, viewRootId, setViewRootId, onSelect, zo
         <div className="h-[80vh] border-2 border-slate-100 rounded-2xl bg-slate-50 relative overflow-hidden cursor-grab active:cursor-grabbing" ref={scrollContainerRef} onMouseDown={handleMouseDown} onMouseLeave={handleMouseLeave} onMouseUp={handleMouseUp} onMouseMove={handleMouseMove}>
            <div className="absolute top-4 right-4 flex gap-2 z-20"><button onClick={handleZoomIn} className="bg-white p-2 rounded shadow"><ZoomIn size={20}/></button><button onClick={handleZoomOut} className="bg-white p-2 rounded shadow"><ZoomOut size={20}/></button><button onClick={handleResetZoom} className="bg-white p-2 rounded shadow"><Maximize size={20}/></button></div>
            <header className="absolute top-4 left-0 right-0 text-center z-10 pointer-events-none"><h2 className="text-3xl font-bold text-slate-800">Family Tree</h2></header>
+           {/* Ensure canvas is large enough to pan */}
            <div className="min-w-[2000px] min-h-[1500px] flex flex-col items-center justify-start pt-32 origin-top-center transition-transform duration-200" style={{transform: `scale(${zoom})`}}>
               {parents.length > 0 && (
                   <div className="flex flex-col items-center mb-12">
@@ -445,8 +448,8 @@ export default function App() {
   const [isCreatingEntry, setIsCreatingEntry] = useState(false);
   const [newEntryContent, setNewEntryContent] = useState("");
   const [newEntryDate, setNewEntryDate] = useState(new Date().toISOString().split('T')[0]);
-  const [journalFilterDate, setJournalFilterDate] = useState("");
-  const [editingEntryId, setEditingEntryId] = useState(null);
+  // const [journalFilterDate, setJournalFilterDate] = useState("");
+  // const [editingEntryId, setEditingEntryId] = useState(null);
 
   useEffect(() => {
     const storedAuth = localStorage.getItem('familyAuth');
@@ -475,37 +478,41 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+      const timer = setInterval(() => setCurrentDate(new Date()), 60000);
+      return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
       if (!db || !user) return;
       const dataPath = `artifacts/${appId}/public/data`;
 
-      const unsubMeta = onSnapshot(doc(db, `${dataPath}/metadata`, 'settings'), (docSnap) => {
+      const unsubMeta = onSnapshot(doc(db, `${dataPath}/metadata`, 'settings'), (docSnap: any) => {
             if (docSnap.exists()) setAppSettings(docSnap.data() as any);
             else setDoc(doc(db, `${dataPath}/metadata`, 'settings'), DEFAULT_SETTINGS);
-      }, (err) => console.log("Waiting for permissions...", err.code));
+      }, (err: any) => console.log("Waiting for permissions...", err.code));
 
-      const unsubFamily = onSnapshot(collection(db, `${dataPath}/familyMembers`), (snap) => {
-        const data = snap.docs.map(d => ({ ...d.data(), id: d.id })); // Fix: ensure ID is present
-        // IF DB HAS DATA, WE MERGE:
+      const unsubFamily = onSnapshot(collection(db, `${dataPath}/familyMembers`), (snap: any) => {
+        const data = snap.docs.map((d: any) => ({ ...d.data(), id: d.id })); 
         if (data.length > 0) {
             const merged = DEFAULT_FAMILY.map(def => {
-                const found = data.find(d => d.id === def.id);
+                const found = data.find((d: any) => d.id === def.id);
                 return found ? { ...def, ...found } : def;
             });
             setFamilyMembers(merged);
         }
-      }, (err) => console.log("Using default family data due to:", err.code));
+      }, (err: any) => console.log("Using default family data due to:", err.code));
       
-      const unsubTimeline = onSnapshot(collection(db, `${dataPath}/timelineEvents`), (snap) => {
-            const data = snap.docs.map(d => ({ ...d.data(), id: d.id })); // Fix: ensure ID is present
+      const unsubTimeline = onSnapshot(collection(db, `${dataPath}/timelineEvents`), (snap: any) => {
+            const data = snap.docs.map((d: any) => ({ ...d.data(), id: d.id }));
             if (data.length > 0) setTimelineEvents(data);
             else if (snap.empty) DEFAULT_TIMELINE.forEach(async (m) => await setDoc(doc(db, `${dataPath}/timelineEvents`, String(m.year + m.title)), m));
-      }, (err) => console.log("Waiting for permissions...", err.code));
+      }, (err: any) => console.log("Waiting for permissions...", err.code));
       
-      const unsubFriends = onSnapshot(collection(db, `${dataPath}/friends`), (snap) => { const data = snap.docs.map(d => ({ ...d.data(), id: d.id })); if (data.length > 0) setFriends(data); else if(snap.empty) DEFAULT_FRIENDS.forEach(async (m, i) => await setDoc(doc(db, `${dataPath}/friends`, String(i)), m)); }, (err) => console.log("Waiting for permissions...", err.code));
-      const unsubHomes = onSnapshot(collection(db, `${dataPath}/homes`), (snap) => { const data = snap.docs.map(d => ({ ...d.data(), id: d.id })); if (data.length > 0) setHomes(data); else if(snap.empty) DEFAULT_HOMES.forEach(async (m) => await setDoc(doc(db, `${dataPath}/homes`, m.id), m)); }, (err) => console.log("Waiting for permissions...", err.code));
-      const unsubJournal = onSnapshot(collection(db, `${dataPath}/journal`), (snap) => { const data = snap.docs.map(d => ({ ...d.data(), id: d.id })); if (data.length > 0) setJournalEntries(data); else if(snap.empty) DEFAULT_JOURNAL.forEach(async (m) => await setDoc(doc(db, `${dataPath}/journal`, String(m.id)), m)); }, (err) => console.log("Waiting for permissions...", err.code));
-      const unsubAlbums = onSnapshot(collection(db, `${dataPath}/albums`), (snap) => { const data = snap.docs.map(d => ({ ...d.data(), id: d.id })); if (data.length > 0) setAlbums(data); else if(snap.empty) DEFAULT_ALBUMS.forEach(async (m) => await setDoc(doc(db, `${dataPath}/albums`, String(m.id)), m)); }, (err) => console.log("Waiting for permissions...", err.code));
-      const unsubProfile = onSnapshot(collection(db, `${dataPath}/metadata`), (snap) => { snap.docs.forEach(d => { if (d.id === 'profile') setProfile(d.data() as any); if (d.id === 'quickPrompt') setQuickPrompt(d.data() as any); }); }, (err) => console.log("Waiting for permissions...", err.code));
+      const unsubFriends = onSnapshot(collection(db, `${dataPath}/friends`), (snap: any) => { const data = snap.docs.map((d: any) => ({ ...d.data(), id: d.id })); if (data.length > 0) setFriends(data); else if(snap.empty) DEFAULT_FRIENDS.forEach(async (m, i) => await setDoc(doc(db, `${dataPath}/friends`, String(i)), m)); }, (err: any) => console.log("Waiting for permissions...", err.code));
+      const unsubHomes = onSnapshot(collection(db, `${dataPath}/homes`), (snap: any) => { const data = snap.docs.map((d: any) => ({ ...d.data(), id: d.id })); if (data.length > 0) setHomes(data); else if(snap.empty) DEFAULT_HOMES.forEach(async (m) => await setDoc(doc(db, `${dataPath}/homes`, m.id), m)); }, (err: any) => console.log("Waiting for permissions...", err.code));
+      const unsubJournal = onSnapshot(collection(db, `${dataPath}/journal`), (snap: any) => { const data = snap.docs.map((d: any) => ({ ...d.data(), id: d.id })); if (data.length > 0) setJournalEntries(data); else if(snap.empty) DEFAULT_JOURNAL.forEach(async (m) => await setDoc(doc(db, `${dataPath}/journal`, String(m.id)), m)); }, (err: any) => console.log("Waiting for permissions...", err.code));
+      const unsubAlbums = onSnapshot(collection(db, `${dataPath}/albums`), (snap: any) => { const data = snap.docs.map((d: any) => ({ ...d.data(), id: d.id })); if (data.length > 0) setAlbums(data); else if(snap.empty) DEFAULT_ALBUMS.forEach(async (m) => await setDoc(doc(db, `${dataPath}/albums`, String(m.id)), m)); }, (err: any) => console.log("Waiting for permissions...", err.code));
+      const unsubProfile = onSnapshot(collection(db, `${dataPath}/metadata`), (snap: any) => { snap.docs.forEach((d: any) => { if (d.id === 'profile') setProfile(d.data() as any); if (d.id === 'quickPrompt') setQuickPrompt(d.data() as any); }); }, (err: any) => console.log("Waiting for permissions...", err.code));
 
       return () => {
           unsubMeta();
@@ -563,11 +570,11 @@ export default function App() {
   const handleDeleteEvent = (e: any) => { e.stopPropagation(); setConfirmModalConfig({isOpen: true, title: "Delete", message: "Delete event?", onConfirm: () => { dbDelete('timelineEvents', selectedEvent.id); setSelectedEvent(null); setConfirmModalConfig((p: any) => ({...p, isOpen:false})); }}); };
   
   // MEMBER EDIT: Only allow edits, no add/delete for family structure
-  const handleEditMember = (e: any) => { e.stopPropagation(); const parents = familyMembers.filter(m => m.id !== selectedPerson.id).map(m => ({ value: m.id, label: m.name })); const fields = [{ name: "name", label: "Name", value: selectedPerson.name }, { name: "relation", label: "Relation", value: selectedPerson.relation }, { name: "dob", label: "DOB", value: selectedPerson.dob }, { name: "image", label: "Photo", value: selectedPerson.image, type: "file" }, { name: "details", label: "Details", value: selectedPerson.details, type: "textarea" }]; setEditModalConfig({ isOpen: true, title: "Edit Member", fields, onSave: (data: any) => { const updated = { ...selectedPerson, ...data }; dbUpdate('familyMembers', selectedPerson.id, updated); setSelectedPerson(updated); setEditModalConfig((p: any) => ({...p, isOpen:false})); }, onUpload: handleUpload }); };
+  const handleEditMember = (e: any) => { e.stopPropagation(); const fields = [{ name: "name", label: "Name", value: selectedPerson.name }, { name: "relation", label: "Relation", value: selectedPerson.relation }, { name: "dob", label: "DOB", value: selectedPerson.dob }, { name: "image", label: "Photo", value: selectedPerson.image, type: "file" }, { name: "details", label: "Details", value: selectedPerson.details, type: "textarea" }]; setEditModalConfig({ isOpen: true, title: "Edit Member", fields, onSave: (data: any) => { const updated = { ...selectedPerson, ...data }; dbUpdate('familyMembers', selectedPerson.id, updated); setSelectedPerson(updated); setEditModalConfig((p: any) => ({...p, isOpen:false})); }, onUpload: handleUpload }); };
   
   const handleAddFriend = () => { const id = Date.now(); dbUpdate('friends', id, { id, name: "New Friend", metAt: "Loc", frequency: "Often", role: "Friend", color: "bg-indigo-500", details: "...", memories: [] }); };
   
-  // FIX: Just select the person on click. Edit happens in the modal.
+  // Friend Selection Handlers
   const handleSelectFriend = (friend: any) => { setSelectedPerson(friend); };
 
   // Helper for actual editing when inside the modal
@@ -583,16 +590,14 @@ export default function App() {
       } 
   };
   
-  // Edit logic for friends (passed to the card)
-  const handleEditPerson = (friend: any) => { setSelectedPerson(friend); }; // For friends, click just selects them
+  // Edit logic for friends
+  const handleEditPerson = (friend: any) => { setSelectedPerson(friend); };
 
   const handleDeletePersonAny = () => { if (selectedPerson.hasOwnProperty('generation')) { alert("Family structure is fixed."); } else { setConfirmModalConfig({ isOpen: true, title: "Delete", message: "Remove friend?", onConfirm: () => { dbDelete('friends', selectedPerson.id); setSelectedPerson(null); setConfirmModalConfig((p: any) => ({...p, isOpen:false})); }}); } };
   const handleAddHome = () => { const fields = [{ name: "name", label: "Name", value: "" }, { name: "address", label: "Address", value: "" }, { name: "years", label: "Years", value: "" }, { name: "image", label: "Photo", value: "", type: "file" }]; setEditModalConfig({ isOpen: true, title: "Add Home", fields, onSave: (data: any) => { const id = Date.now(); const newHome = { id, color: "bg-indigo-500", description: "...", features: [], rooms: [], ...data }; dbUpdate('homes', id, newHome); setEditModalConfig((p: any) => ({...p, isOpen:false})); }, onUpload: handleUpload }); };
   const handleEditHome = () => { const fields = [{ name: "name", label: "Name", value: selectedHome.name }, { name: "address", label: "Address", value: selectedHome.address }, { name: "years", label: "Years", value: selectedHome.years }, { name: "description", label: "Description", value: selectedHome.description, type: "textarea" }, { name: "image", label: "Photo", value: selectedHome.image, type: "file" }]; setEditModalConfig({ isOpen: true, title: "Edit Home", fields, onSave: (data: any) => { const updatedHome = { ...selectedHome, ...data }; dbUpdate('homes', selectedHome.id, updatedHome); setSelectedHome(updatedHome); setEditModalConfig((p: any) => ({...p, isOpen:false})); }, onUpload: handleUpload }); };
   const handleAddRoom = () => { const fields = [{name: "name", label: "Room Name", value: ""}, {name: "desc", label: "Desc", value: "", type: "textarea"}, {name: "image", label: "Photo", value: "", type: "file"}]; setEditModalConfig({ isOpen: true, title: "Add Room", fields, onSave: (data: any) => { const newRoom = { name: data.name, desc: data.desc, image: data.image, color: "bg-indigo-100" }; const updatedHome = { ...selectedHome, rooms: [...(selectedHome.rooms || []), newRoom] }; dbUpdate('homes', selectedHome.id, updatedHome); setSelectedHome(updatedHome); setEditModalConfig((p: any) => ({...p, isOpen:false})); }, onUpload: handleUpload }); };
   const handleDeleteRoom = (index: number) => { setConfirmModalConfig({ isOpen: true, title: "Delete Room", message: "Delete?", onConfirm: () => { const updatedRooms = selectedHome.rooms.filter((_: any, i: number) => i !== index); const updatedHome = { ...selectedHome, rooms: updatedRooms }; dbUpdate('homes', selectedHome.id, updatedHome); setSelectedHome(updatedHome); setConfirmModalConfig((p: any) => ({...p, isOpen:false})); }}); };
-  
-  // --- UPDATED ALBUM HANDLERS ---
   const handleAddAlbum = () => { 
       const fields = [
           { name: "title", label: "Album Title", value: "" },
@@ -635,8 +640,7 @@ export default function App() {
     });
   };
   const handleDeleteAlbum = (e: any, id: string|number) => { e.stopPropagation(); e.preventDefault(); setConfirmModalConfig({ isOpen: true, title: "Delete", message: "Delete?", onConfirm: () => { dbDelete('albums', id); setConfirmModalConfig((p: any) => ({...p, isOpen:false})); }}); };
-  const saveEditedEntry = (id: string|number) => { const entry = journalEntries.find(e => e.id === id); const updated = { ...entry, content: editContent }; dbUpdate('journal', id, updated); setEditingEntryId(null); };
-  const saveNewEntry = () => { if (!newEntryContent.trim()) return; const id = Date.now(); const newEntry = { id, date: newEntryDate, content: newEntryContent, mood: "Neutral" }; dbUpdate('journal', id, newEntry); setIsCreatingEntry(false); setNewEntryContent(""); };
+  const saveNewEntry = () => { if (!newEntryContent.trim()) return; const id = Date.now(); const newEntry = { id, date: new Date().toISOString(), content: newEntryContent, mood: "Neutral" }; dbUpdate('journal', id, newEntry); setIsCreatingEntry(false); setNewEntryContent(""); };
   const deleteEntry = (id: string|number) => { if(window.confirm("Delete?")) dbDelete('journal', id); };
 
   if (!isAuthenticated) return <LoginScreen onLogin={handleFamilyLogin} correctPin={appSettings.familyPin} />;
@@ -697,7 +701,7 @@ export default function App() {
                   <p className="text-lg font-medium leading-snug">"{quickPrompt.text}"</p>
                </div>
             </div>
-            <div className="text-center text-slate-300 text-xs mt-12">Version 1.5 - Stable Sync</div>
+            <div className="text-center text-slate-300 text-xs mt-12">Version 1.7 - Stable Sync</div>
           </div>
         )}
 
@@ -757,7 +761,7 @@ export default function App() {
                     {isEditMode && <button onClick={handleAddFriend} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"><Plus size={18} /> Add Friend</button>}
                 </header>
                 <div className="grid grid-cols-1 gap-4">
-                    {friends.map(friend => (<FriendCard key={friend.id} friend={friend} onClick={handleEditPerson} />))}
+                    {friends.map(friend => (<FriendCard key={friend.id} friend={friend} onClick={handleSelectFriend} />))}
                 </div>
              </div>
         )}
@@ -848,7 +852,7 @@ export default function App() {
                     <div>
                         <h4 className="font-bold text-slate-400 text-xs uppercase tracking-wide mb-3">Rooms in this house</h4>
                         <div className="grid grid-cols-2 gap-3">
-                            {selectedHome.rooms.map((room, i) => (
+                            {selectedHome.rooms.map((room: any, i: number) => (
                                 <div key={i} className="bg-slate-50 rounded-xl overflow-hidden border border-slate-100 relative group">
                                     {isEditMode && (<button onClick={() => handleDeleteRoom(i)} className="absolute top-2 right-2 bg-white/80 p-1 rounded-full text-slate-500 hover:text-red-500 z-10"><Trash2 size={14}/></button>)}
                                     <div className={`h-24 ${room.color} flex items-center justify-center relative`}>{room.image ? (<img src={room.image} alt={room.name} className="w-full h-full object-cover" />) : (<ImageIcon className="text-slate-400 opacity-50" />)}</div>
