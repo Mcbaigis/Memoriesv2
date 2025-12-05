@@ -118,7 +118,7 @@ const EditorModal = ({ isOpen, title, fields, onClose, onSave, onUpload }: any) 
         if (file && onUpload) {
             setUploading(true);
             try { const url = await onUpload(file); handleChange(name, url); } 
-            catch (err) { console.error(err); alert("Upload failed. Check console."); } 
+            catch (err) { console.error(err); alert("Upload failed."); } 
             finally { setUploading(false); }
         }
     };
@@ -422,7 +422,6 @@ export default function App() {
   const [journalEntries, setJournalEntries] = useState<any[]>([]);
   const [albums, setAlbums] = useState<any[]>([]);
   const [timelineEvents, setTimelineEvents] = useState<any[]>([]);
-  // INITIALIZE WITH DEFAULT FAMILY TO PREVENT BLANK SCREEN
   const [familyMembers, setFamilyMembers] = useState<any[]>(DEFAULT_FAMILY); 
   const [friends, setFriends] = useState<any[]>([]);
   const [homes, setHomes] = useState<any[]>([]);
@@ -432,7 +431,6 @@ export default function App() {
   
   const [viewRootId, setViewRootId] = useState('jackie');
   const [timelineZoom, setTimelineZoom] = useState(2);
-  // Unused state setters removed for deployment build
   const startYear = 1950; 
   const endYear = new Date().getFullYear() + 1;
   const [filters, setFilters] = useState({ family: true, work: true, world: true, birthday: true });
@@ -440,6 +438,24 @@ export default function App() {
   const toggleFilter = (key: any) => { setFilters((prev: any) => ({ ...prev, [key]: !prev[key] })); };
   const [isCreatingEntry, setIsCreatingEntry] = useState(false);
   const [newEntryContent, setNewEntryContent] = useState("");
+
+  // Calculate timeline data at the top so it's available
+  const birthdayEvents = familyMembers.filter(m => m.dob).map(m => ({ 
+      id: `bd-${m.id}`, 
+      year: parseInt(m.dob.split('-')[0] || m.dob), 
+      title: `${m.name} born`, 
+      category: 'birthday', 
+      icon: 'cake', 
+      color: 'bg-rose-300', 
+      description: `Birthday of ${m.name}.`, 
+      location: 'Family', 
+      type: 'memory',
+      image: m.image || "" // Inherit image from person
+  }));
+  const allTimelineEvents = [...timelineEvents, ...birthdayEvents];
+  const sortedTimeline = allTimelineEvents.filter(item => filters[item.category as keyof typeof filters]).filter(item => item.year >= startYear && item.year <= endYear).sort((a, b) => a.year - b.year);
+  const filteredJournal = journalEntries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const getGreeting = () => { const hour = new Date().getHours(); if (hour < 12) return "Good Morning"; if (hour < 18) return "Good Afternoon"; return "Good Evening"; };
 
   useEffect(() => {
     const storedAuth = localStorage.getItem('familyAuth');
@@ -516,7 +532,12 @@ export default function App() {
       };
   }, [db, user, appId]);
 
-  const dbUpdate = async (collectionName: string, id: string|number, data: any) => { if (!db) return; await setDoc(doc(db, `artifacts/${appId}/public/data/${collectionName}`, String(id)), data); };
+  const dbUpdate = async (collectionName: string, id: string|number, data: any) => { 
+      if (!db) return; 
+      // Clean data to remove undefined values
+      const cleanData = JSON.parse(JSON.stringify(data));
+      await setDoc(doc(db, `artifacts/${appId}/public/data/${collectionName}`, String(id)), cleanData); 
+  };
   const dbDelete = async (collectionName: string, id: string|number) => { if (!db) return; await deleteDoc(doc(db, `artifacts/${appId}/public/data/${collectionName}`, String(id))); };
   const handleUpload = async (file: any) => { if (!storageRefState) return ""; const storageRef = ref(storageRefState, 'images/' + file.name + '_' + Date.now()); await uploadBytes(storageRef, file); return await getDownloadURL(storageRef); };
 
@@ -528,12 +549,6 @@ export default function App() {
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.4));
   const handleResetZoom = () => setZoom(0.9);
   const handleUpdateSettings = () => { const fields = [{ name: "siteTitle", label: "Site Title", value: appSettings.siteTitle }, { name: "familyPin", label: "Family PIN", value: appSettings.familyPin }, { name: "adminPin", label: "Admin PIN", value: appSettings.adminPin }]; setEditModalConfig({ isOpen: true, title: "Settings", fields, onSave: (data: any) => { dbUpdate('metadata', 'settings', data); setEditModalConfig((p: any) => ({...p, isOpen:false})); } }); };
-
-  const birthdayEvents = familyMembers.filter(m => m.dob).map(m => ({ id: `bd-${m.id}`, year: parseInt(m.dob.split('-')[0] || m.dob), title: `${m.name} born`, category: 'birthday', icon: 'cake', color: 'bg-rose-300', description: `Birthday of ${m.name}.`, location: 'Family', type: 'memory' }));
-  const allTimelineEvents = [...timelineEvents, ...birthdayEvents];
-  const sortedTimeline = allTimelineEvents.filter(item => filters[item.category as keyof typeof filters]).filter(item => item.year >= startYear && item.year <= endYear).sort((a, b) => a.year - b.year);
-  const filteredJournal = journalEntries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  const getGreeting = () => { const hour = new Date().getHours(); if (hour < 12) return "Good Morning"; if (hour < 18) return "Good Afternoon"; return "Good Evening"; };
 
   const handleAddEvent = () => { 
       const fields = [
@@ -550,21 +565,46 @@ export default function App() {
           const styles = getCategoryStyles(data.category || 'family');
           const newEvent = { id, ...styles, ...data }; 
           dbUpdate('timelineEvents', id, newEvent);
+          // Optimistic update
+          setTimelineEvents(prev => [...prev, newEvent]);
           setEditModalConfig((prev: any) => ({...prev, isOpen: false}));
       }, onUpload: handleUpload });
   };
 
   const handleEditProfile = (e: any) => { e.stopPropagation(); setEditModalConfig({isOpen: true, title: "Edit Profile", fields: [{ name: "name", label: "Name", value: profile.name }, { name: "details", label: "Details", value: profile.details }], onSave: (data: any) => { dbUpdate('metadata', 'profile', data); setEditModalConfig((p: any) => ({...p, isOpen:false})); }}); };
   const handleEditPrompt = (e: any) => { e.stopPropagation(); setEditModalConfig({isOpen: true, title: "Edit Reminder", fields: [{ name: "text", label: "Text", value: quickPrompt.text, type: "textarea" }], onSave: (data: any) => { dbUpdate('metadata', 'quickPrompt', data); setEditModalConfig((p: any) => ({...p, isOpen:false})); }}); };
-  const handleEditEvent = (e: any) => { e.stopPropagation(); const fields = [{ name: "title", label: "Title", value: selectedEvent.title }, { name: "year", label: "Year", value: selectedEvent.year }, { name: "description", label: "Desc", value: selectedEvent.description, type: "textarea" }, { name: "location", label: "Loc", value: selectedEvent.location }, { name: "type", label: "Style", value: selectedEvent.type, type: "select", options: [{value: 'memory', label: 'Standard Card'}, {value: 'headline', label: 'Headline Style'}, {value: 'photo', label: 'Polaroid Photo'}] }, { name: "image", label: "Image", value: selectedEvent.image, type: "file" }]; setEditModalConfig({ isOpen: true, title: "Edit Event", fields, onSave: (data: any) => { const styles = getCategoryStyles(data.category || selectedEvent.category); const updated = { ...selectedEvent, ...data, ...styles }; dbUpdate('timelineEvents', selectedEvent.id, updated); setSelectedEvent(updated); setEditModalConfig((p: any) => ({...p, isOpen:false})); }, onUpload: handleUpload }); };
-  const handleDeleteEvent = (e: any) => { e.stopPropagation(); setConfirmModalConfig({isOpen: true, title: "Delete", message: "Delete event?", onConfirm: () => { dbDelete('timelineEvents', selectedEvent.id); setSelectedEvent(null); setConfirmModalConfig((p: any) => ({...p, isOpen:false})); }}); };
+  
+  const handleEditEvent = (e: any) => { 
+      e.stopPropagation(); 
+      const fields = [{ name: "title", label: "Title", value: selectedEvent.title }, { name: "year", label: "Year", value: selectedEvent.year }, { name: "description", label: "Desc", value: selectedEvent.description, type: "textarea" }, { name: "location", label: "Loc", value: selectedEvent.location }, { name: "type", label: "Style", value: selectedEvent.type, type: "select", options: [{value: 'memory', label: 'Standard Card'}, {value: 'headline', label: 'Headline Style'}, {value: 'photo', label: 'Polaroid Photo'}] }, { name: "image", label: "Image", value: selectedEvent.image, type: "file" }]; 
+      setEditModalConfig({ isOpen: true, title: "Edit Event", fields, onSave: (data: any) => { 
+          const styles = getCategoryStyles(data.category || selectedEvent.category); 
+          const updated = { ...selectedEvent, ...data, ...styles }; 
+          dbUpdate('timelineEvents', selectedEvent.id, updated); 
+          // Optimistic update
+          setTimelineEvents(prev => prev.map(ev => ev.id === selectedEvent.id ? updated : ev));
+          setSelectedEvent(updated); 
+          setEditModalConfig((p: any) => ({...p, isOpen:false})); 
+      }, onUpload: handleUpload }); 
+  };
+
+  const handleDeleteEvent = (e: any) => { 
+      e.stopPropagation(); 
+      setConfirmModalConfig({isOpen: true, title: "Delete", message: "Delete event?", onConfirm: () => { 
+          if (selectedEvent && selectedEvent.id) {
+             dbDelete('timelineEvents', selectedEvent.id); 
+             // Optimistic update
+             setTimelineEvents(prev => prev.filter(ev => ev.id !== selectedEvent.id));
+             setSelectedEvent(null); 
+             setConfirmModalConfig((p: any) => ({...p, isOpen:false})); 
+          }
+      }}); 
+  };
   
   const handleAddFriend = () => { const id = Date.now(); dbUpdate('friends', id, { id, name: "New Friend", metAt: "Loc", frequency: "Often", role: "Friend", color: "bg-indigo-500", details: "...", memories: [] }); };
   
-  // Friend Selection Handlers
   const handleSelectFriend = (friend: any) => { setSelectedPerson(friend); };
 
-  // Helper for actual editing when inside the modal
   const startEditPerson = () => { 
       if (selectedPerson.hasOwnProperty('generation')) { 
           // It's family
@@ -685,7 +725,7 @@ export default function App() {
                   <p className="text-lg font-medium leading-snug">"{quickPrompt.text}"</p>
                </div>
             </div>
-            <div className="text-center text-slate-300 text-xs mt-12">Version 1.8 - Clean Build</div>
+            <div className="text-center text-slate-300 text-xs mt-12">Version 1.9 - Clean Build</div>
           </div>
         )}
 
@@ -716,7 +756,7 @@ export default function App() {
         )}
 
         {activeTab === 'family' && (
-            <FamilyTreeView familyMembers={familyMembers} viewRootId={viewRootId} setViewRootId={setViewRootId} onSelect={setSelectedPerson} zoom={zoom} scrollContainerRef={scrollContainerRef} handleZoomIn={handleZoomIn} handleZoomOut={handleZoomOut} handleResetZoom={handleResetZoom} isEditMode={isEditMode} />
+            <FamilyTreeView familyMembers={familyMembers} viewRootId={viewRootId} setViewRootId={setViewRootId} onSelect={setSelectedPerson} zoom={zoom} scrollContainerRef={scrollContainerRef} handleZoomIn={handleZoomIn} handleZoomOut={handleZoomOut} handleResetZoom={handleResetZoom} />
         )}
 
         {/* ... Other tabs (Gallery, Friends, Houses, Journal) ... */}
