@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Heart, Calendar, MapPin, Briefcase, Camera, Home, Music, X, ChevronRight, Sun, Baby, Users, Star, Globe, Smile, Armchair, Book, Image as ImageIcon, Edit2, Save, Plus, Lock, Unlock, Trash2, ArrowLeft, ArrowRight, Maximize, Upload, ZoomIn, ZoomOut, Cake, Loader2, Newspaper, StickyNote, Settings, LogOut, Menu
+  Heart, Calendar, MapPin, Briefcase, Camera, Home, Music, X, ChevronRight, Sun, Baby, Users, Star, Globe, Smile, Armchair, Book, Image as ImageIcon, Edit2, Save, Plus, Lock, Unlock, Trash2, ArrowLeft, ArrowRight, Maximize, Upload, ZoomIn, ZoomOut, Cake, Loader2, Newspaper, StickyNote, Settings, LogOut, Menu, Move
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -211,20 +211,46 @@ const NavButtonMobile = ({ active, onClick, icon, label }: any) => ( <button onC
 const TreeBranch = ({ person, allMembers, onSelect, stopRecursion = false }: any) => {
     const spouse = allMembers.find((m: any) => m.id === person.spouseId);
     const children = stopRecursion ? [] : allMembers.filter((m: any) => (m.parentId === person.id || (spouse && m.parentId === spouse.id)) && m.id !== person.spouseId);
-    return (<div className="flex flex-col items-center px-2"><div className="z-10 relative flex items-center gap-3 mb-4"><FamilyMemberNode member={person} onClick={onSelect} />{spouse && <><div className="h-0.5 w-4 bg-rose-300"></div><FamilyMemberNode member={spouse} onClick={onSelect} /></>}</div>{children.length > 0 && (<div className="flex flex-col items-center w-full"><div className="h-6 w-px bg-slate-300 -mt-4 mb-0"></div>{children.length > 1 && <div className="w-full h-3 border-t border-slate-300 rounded-t-lg mb-3" style={{width: '94%'}}></div>}<div className="flex gap-4 items-start justify-center">{children.map((child: any) => <TreeBranch key={child.id} person={child} allMembers={allMembers} onSelect={onSelect} />)}</div></div>)}</div>);
+    return (
+        <div className="flex flex-col items-center px-2">
+            <div className="z-10 relative flex items-center gap-3 mb-4">
+                <FamilyMemberNode member={person} onClick={onSelect} />
+                {spouse && (
+                    <>
+                        <div className="h-0.5 w-4 bg-rose-300"></div>
+                        <FamilyMemberNode member={spouse} onClick={onSelect} />
+                    </>
+                )}
+            </div>
+            {children.length > 0 && (
+                <div className="flex flex-col items-center w-full">
+                    <div className="h-6 w-px bg-slate-300 -mt-4 mb-0"></div>
+                    {children.length > 1 && (
+                        <div className="w-full h-3 border-t border-slate-300 rounded-t-lg mb-3" style={{width: '94%'}}></div>
+                    )}
+                    <div className="flex gap-4 items-start justify-center">
+                        {children.map((child: any) => (
+                            <TreeBranch key={child.id} person={child} allMembers={allMembers} onSelect={onSelect} />
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 };
 
-// --- SEPARATE FAMILY TREE VIEW COMPONENT ---
-// Removed unused 'isEditMode' from props to fix TS error
 const FamilyTreeView = ({ familyMembers, viewRootId, setViewRootId, onSelect, zoom, scrollContainerRef, handleZoomIn, handleZoomOut, handleResetZoom }: any) => {
     const [isDragging, setIsDragging] = useState(false);
     const [startX, setStartX] = useState(0);
     const [startY, setStartY] = useState(0);
     const [scrollLeft, setScrollLeft] = useState(0);
     const [scrollTop, setScrollTop] = useState(0);
+    const [showHint, setShowHint] = useState(true);
     
+    // Mouse Events
     const handleMouseDown = (e: any) => {
         if (!scrollContainerRef.current) return;
+        setShowHint(false);
         setIsDragging(true);
         setStartX(e.pageX - scrollContainerRef.current.offsetLeft);
         setStartY(e.pageY - scrollContainerRef.current.offsetTop);
@@ -243,6 +269,34 @@ const FamilyTreeView = ({ familyMembers, viewRootId, setViewRootId, onSelect, zo
         scrollContainerRef.current.scrollLeft = scrollLeft - walkX;
         scrollContainerRef.current.scrollTop = scrollTop - walkY;
     };
+
+    // Touch Events for Mobile
+    const handleTouchStart = (e: any) => {
+        if (!scrollContainerRef.current) return;
+        setShowHint(false);
+        setIsDragging(true);
+        const touch = e.touches[0];
+        setStartX(touch.pageX - scrollContainerRef.current.offsetLeft);
+        setStartY(touch.pageY - scrollContainerRef.current.offsetTop);
+        setScrollLeft(scrollContainerRef.current.scrollLeft);
+        setScrollTop(scrollContainerRef.current.scrollTop);
+    };
+
+    const handleTouchMove = (e: any) => {
+        if (!isDragging || !scrollContainerRef.current) return;
+        // e.preventDefault(); 
+        // We generally want to preventDefault to stop native scrolling, 
+        // but 'touch-action: none' css should handle it better.
+        const touch = e.touches[0];
+        const x = touch.pageX - scrollContainerRef.current.offsetLeft;
+        const y = touch.pageY - scrollContainerRef.current.offsetTop;
+        const walkX = (x - startX) * 1.5;
+        const walkY = (y - startY) * 1.5;
+        scrollContainerRef.current.scrollLeft = scrollLeft - walkX;
+        scrollContainerRef.current.scrollTop = scrollTop - walkY;
+    };
+
+    const handleTouchEnd = () => setIsDragging(false);
     
     // CENTER ON MOUNT
     useEffect(() => {
@@ -273,7 +327,32 @@ const FamilyTreeView = ({ familyMembers, viewRootId, setViewRootId, onSelect, zo
     if (!currentRoot) return <div className="text-center p-20 text-slate-400 font-bold">Loading Family Tree...</div>;
 
     return (
-        <div className="h-[80vh] border-2 border-slate-100 rounded-2xl bg-slate-50 relative overflow-hidden cursor-grab active:cursor-grabbing" ref={scrollContainerRef} onMouseDown={handleMouseDown} onMouseLeave={handleMouseLeave} onMouseUp={handleMouseUp} onMouseMove={handleMouseMove}>
+        <div 
+            className="h-[80vh] border-2 border-slate-100 rounded-2xl bg-slate-50 relative overflow-hidden cursor-grab active:cursor-grabbing touch-none" 
+            ref={scrollContainerRef} 
+            onMouseDown={handleMouseDown} 
+            onMouseLeave={handleMouseLeave} 
+            onMouseUp={handleMouseUp} 
+            onMouseMove={handleMouseMove}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            style={{ touchAction: 'none' }}
+        >
+           {showHint && (
+               <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none bg-black/5 animate-in fade-in duration-500">
+                   <div className="bg-white/95 px-6 py-4 rounded-full shadow-xl flex items-center gap-3 animate-pulse border border-slate-100">
+                       <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600">
+                           <Move size={24} /> 
+                       </div>
+                       <div>
+                           <p className="font-bold text-slate-800 text-sm">Drag to explore</p>
+                           <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Move to see everyone</p>
+                       </div>
+                   </div>
+               </div>
+           )}
+
            <div className="absolute top-4 right-4 flex gap-2 z-20"><button onClick={handleZoomIn} className="bg-white p-2 rounded shadow"><ZoomIn size={20}/></button><button onClick={handleZoomOut} className="bg-white p-2 rounded shadow"><ZoomOut size={20}/></button><button onClick={handleResetZoom} className="bg-white p-2 rounded shadow"><Maximize size={20}/></button></div>
            <header className="absolute top-4 left-0 right-0 text-center z-10 pointer-events-none"><h2 className="text-3xl font-bold text-slate-800">Family Tree</h2></header>
            <div className="min-w-[2000px] min-h-[1500px] flex flex-col items-center justify-start pt-32 origin-top-center transition-transform duration-200" style={{transform: `scale(${zoom})`}}>
