@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Heart, Calendar, MapPin, Briefcase, Camera, Home, Music, X, ChevronRight, Sun, Baby, Users, Star, Globe, Smile, Armchair, Book, Image as ImageIcon, Edit2, Save, Plus, Lock, Unlock, Trash2, ArrowLeft, ArrowRight, Maximize, Upload, ZoomIn, ZoomOut, Cake, Loader2, Newspaper, StickyNote, Settings, LogOut
+  Heart, Calendar, MapPin, Briefcase, Camera, Home, Music, X, ChevronRight, Sun, Baby, Users, Star, Globe, Smile, Armchair, Book, Image as ImageIcon, Edit2, Save, Plus, Lock, Unlock, Trash2, ArrowLeft, ArrowRight, Maximize, Upload, ZoomIn, ZoomOut, Cake, Loader2, Newspaper, StickyNote, Settings, LogOut, Menu
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -215,7 +215,7 @@ const TreeBranch = ({ person, allMembers, onSelect, stopRecursion = false }: any
 };
 
 // --- SEPARATE FAMILY TREE VIEW COMPONENT ---
-const FamilyTreeView = ({ familyMembers, viewRootId, setViewRootId, onSelect, zoom, scrollContainerRef, handleZoomIn, handleZoomOut, handleResetZoom }: any) => {
+const FamilyTreeView = ({ familyMembers, viewRootId, setViewRootId, onSelect, zoom, scrollContainerRef, handleZoomIn, handleZoomOut, handleResetZoom, isEditMode }: any) => {
     const [isDragging, setIsDragging] = useState(false);
     const [startX, setStartX] = useState(0);
     const [startY, setStartY] = useState(0);
@@ -405,6 +405,7 @@ export default function App() {
   const [storageRefState, setStorageRefState] = useState<any>(null);
   const [db, setDb] = useState<any>(null);
   const [appId, setAppId] = useState<any>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   const [activeTab, setActiveTab] = useState('home');
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
@@ -422,6 +423,7 @@ export default function App() {
   const [journalEntries, setJournalEntries] = useState<any[]>([]);
   const [albums, setAlbums] = useState<any[]>([]);
   const [timelineEvents, setTimelineEvents] = useState<any[]>([]);
+  // INITIALIZE WITH DEFAULT FAMILY TO PREVENT BLANK SCREEN
   const [familyMembers, setFamilyMembers] = useState<any[]>(DEFAULT_FAMILY); 
   const [friends, setFriends] = useState<any[]>([]);
   const [homes, setHomes] = useState<any[]>([]);
@@ -674,6 +676,26 @@ export default function App() {
       <EditorModal isOpen={editModalConfig.isOpen} title={editModalConfig.title} fields={editModalConfig.fields} onSave={editModalConfig.onSave} onClose={() => setEditModalConfig((prev: any) => ({...prev, isOpen: false}))} onUpload={handleUpload} />
       <ConfirmModal isOpen={confirmModalConfig.isOpen} title={confirmModalConfig.title} message={confirmModalConfig.message} onConfirm={confirmModalConfig.onConfirm} onClose={() => setConfirmModalConfig((prev: any) => ({...prev, isOpen: false}))} />
       <PinModal isOpen={isPinModalOpen} onClose={() => setIsPinModalOpen(false)} onSuccess={() => setIsEditMode(true)} correctPin={appSettings.adminPin} />
+      
+      {/* MOBILE MENU OVERLAY */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-50 bg-white animate-in slide-in-from-bottom duration-200 flex flex-col">
+            <div className="p-4 border-b flex justify-between items-center bg-slate-50">
+                <h2 className="text-xl font-bold text-slate-800">Menu</h2>
+                <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 bg-white rounded-full shadow-sm"><X size={24}/></button>
+            </div>
+            <div className="p-6 grid grid-cols-2 gap-4 overflow-y-auto">
+                <button onClick={() => { setActiveTab('home'); setIsMobileMenuOpen(false); }} className="bg-slate-50 p-6 rounded-2xl flex flex-col items-center gap-3 border-2 border-transparent active:border-indigo-500"><Home size={32} className="text-indigo-600"/><span className="font-bold text-slate-700">Home</span></button>
+                <button onClick={() => { setActiveTab('timeline'); setIsMobileMenuOpen(false); }} className="bg-slate-50 p-6 rounded-2xl flex flex-col items-center gap-3 border-2 border-transparent active:border-indigo-500"><Calendar size={32} className="text-blue-600"/><span className="font-bold text-slate-700">Timeline</span></button>
+                <button onClick={() => { setActiveTab('family'); setIsMobileMenuOpen(false); }} className="bg-slate-50 p-6 rounded-2xl flex flex-col items-center gap-3 border-2 border-transparent active:border-indigo-500"><Users size={32} className="text-pink-500"/><span className="font-bold text-slate-700">Family</span></button>
+                <button onClick={() => { setActiveTab('gallery'); setIsMobileMenuOpen(false); }} className="bg-slate-50 p-6 rounded-2xl flex flex-col items-center gap-3 border-2 border-transparent active:border-indigo-500"><ImageIcon size={32} className="text-purple-500"/><span className="font-bold text-slate-700">Gallery</span></button>
+                <button onClick={() => { setActiveTab('friends'); setIsMobileMenuOpen(false); }} className="bg-slate-50 p-6 rounded-2xl flex flex-col items-center gap-3 border-2 border-transparent active:border-indigo-500"><Smile size={32} className="text-yellow-500"/><span className="font-bold text-slate-700">Friends</span></button>
+                <button onClick={() => { setActiveTab('houses'); setIsMobileMenuOpen(false); }} className="bg-slate-50 p-6 rounded-2xl flex flex-col items-center gap-3 border-2 border-transparent active:border-indigo-500"><Armchair size={32} className="text-orange-500"/><span className="font-bold text-slate-700">Homes</span></button>
+                <button onClick={() => { setActiveTab('journal'); setIsMobileMenuOpen(false); }} className="bg-slate-50 p-6 rounded-2xl flex flex-col items-center gap-3 border-2 border-transparent active:border-indigo-500"><Book size={32} className="text-emerald-500"/><span className="font-bold text-slate-700">Journal</span></button>
+                <button onClick={() => { setIsMobileMenuOpen(false); handleAdminClick(); }} className="bg-slate-50 p-6 rounded-2xl flex flex-col items-center gap-3 border-2 border-transparent active:border-indigo-500"><Settings size={32} className="text-slate-400"/><span className="font-bold text-slate-700">Admin</span></button>
+            </div>
+        </div>
+      )}
 
       <nav className="hidden md:flex fixed left-0 top-0 bottom-0 w-20 bg-white border-r border-slate-200 flex-col items-center py-6 z-40 overflow-y-auto no-scrollbar">
          <div className="flex flex-col items-center w-full gap-6">
@@ -693,16 +715,12 @@ export default function App() {
         </div>
       </nav>
 
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t p-2 flex justify-around z-40 overflow-x-auto">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t p-2 flex justify-around z-40">
         <NavButtonMobile active={activeTab === 'home'} onClick={() => setActiveTab('home')} icon={<Home />} label="Home" />
         <NavButtonMobile active={activeTab === 'family'} onClick={() => setActiveTab('family')} icon={<Users />} label="Family" />
         <NavButtonMobile active={activeTab === 'gallery'} onClick={() => setActiveTab('gallery')} icon={<ImageIcon />} label="Gallery" />
         <NavButtonMobile active={activeTab === 'timeline'} onClick={() => setActiveTab('timeline')} icon={<Calendar />} label="Timeline" />
-        <NavButtonMobile active={activeTab === 'journal'} onClick={() => setActiveTab('journal')} icon={<Book />} label="Journal" />
-        <button onClick={handleAdminClick} className={`flex flex-col items-center gap-1 p-2 min-w-[64px] rounded-xl transition-all ${isEditMode ? 'text-red-600' : 'text-slate-400'}`}>
-          <div className={`p-2 rounded-full ${isEditMode ? 'bg-red-100' : ''}`}>{isEditMode ? <Unlock size={20} /> : <Lock size={20} />}</div>
-          <span className="text-[10px] font-medium whitespace-nowrap">Admin</span>
-        </button>
+        <button onClick={() => setIsMobileMenuOpen(true)} className={`flex flex-col items-center gap-1 p-2 min-w-[64px] text-slate-400`}><div><Menu size={20} /></div><span className="text-[10px]">Menu</span></button>
       </nav>
 
       <main className="max-w-6xl mx-auto p-4 md:p-8">
@@ -725,7 +743,7 @@ export default function App() {
                   <p className="text-lg font-medium leading-snug">"{quickPrompt.text}"</p>
                </div>
             </div>
-            <div className="text-center text-slate-300 text-xs mt-12">Version 1.9 - Clean Build</div>
+            <div className="text-center text-slate-300 text-xs mt-12">Version 1.10 - Mobile Menu</div>
           </div>
         )}
 
@@ -756,7 +774,7 @@ export default function App() {
         )}
 
         {activeTab === 'family' && (
-            <FamilyTreeView familyMembers={familyMembers} viewRootId={viewRootId} setViewRootId={setViewRootId} onSelect={setSelectedPerson} zoom={zoom} scrollContainerRef={scrollContainerRef} handleZoomIn={handleZoomIn} handleZoomOut={handleZoomOut} handleResetZoom={handleResetZoom} />
+            <FamilyTreeView familyMembers={familyMembers} viewRootId={viewRootId} setViewRootId={setViewRootId} onSelect={setSelectedPerson} zoom={zoom} scrollContainerRef={scrollContainerRef} handleZoomIn={handleZoomIn} handleZoomOut={handleZoomOut} handleResetZoom={handleResetZoom} isEditMode={isEditMode} />
         )}
 
         {/* ... Other tabs (Gallery, Friends, Houses, Journal) ... */}
