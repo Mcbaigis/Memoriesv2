@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Heart, Calendar, MapPin, Briefcase, Camera, Home, Music, X, ChevronRight, Sun, Baby, Users, Star, Globe, Smile, Armchair, Book, Image as ImageIcon, Edit2, Save, Plus, Lock, Unlock, Trash2, ArrowLeft, ArrowRight, Maximize, Upload, ZoomIn, ZoomOut, Cake, Loader2, Newspaper, StickyNote, Settings, LogOut, Menu, Move
+  Heart, Calendar, MapPin, Briefcase, Camera, Home, Music, X, ChevronRight, Sun, Baby, Users, Star, Globe, Smile, Armchair, Book, Image as ImageIcon, Edit2, Save, Plus, Lock, Unlock, Trash2, ArrowLeft, ArrowRight, Maximize, Upload, ZoomIn, ZoomOut, Cake, Loader2, Newspaper, StickyNote, Settings, LogOut, Menu, Move, Bold, Italic, List
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -27,6 +27,11 @@ const safeRender = (val: any) => {
   if (val === null || val === undefined) return "";
   if (typeof val === 'object') return ""; 
   return String(val);
+};
+
+const getMonthNumber = (monthName: string) => {
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    return months.indexOf(monthName);
 };
 
 const ICON_MAP: any = {
@@ -89,7 +94,7 @@ const DEFAULT_FAMILY = [
 const DEFAULT_TIMELINE = [
   { year: 1976, title: "Wedding Day", category: "family", icon: "heart", color: "bg-red-500", description: "Married Kenny.", location: "St. Mary's", type: "memory" }
 ];
-const DEFAULT_JOURNAL = [{ id: '1', date: "2023-10-24", content: "Had a lovely cup of tea.", mood: "Happy" }];
+const DEFAULT_JOURNAL = [{ id: '1', date: "2023-10-24", content: "Had a lovely cup of tea.", mood: "Happy", authorId: 'system' }];
 const DEFAULT_ALBUMS = [{ id: '1', title: 'Family Holidays', subtitle: 'July 1995', year: 1995, month: 'July', color: 'bg-blue-500', link: '', coverImage: '' }];
 
 // --- UI COMPONENTS ---
@@ -104,6 +109,66 @@ const Modal = ({ isOpen, onClose, children, color = "bg-white", zIndex = "z-50" 
       </div>
     </div>
   );
+};
+
+// Rich Text Editor Component
+const RichTextEditor = ({ value, onChange, placeholder }: any) => {
+    const editorRef = useRef<HTMLDivElement>(null);
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+    const EMOJIS = ['😊', '❤️', '🎉', '👍', '🎂', '🌟', '👨‍👩‍👧‍👦', '🏡', '🌸', '😂', '😢', '🙌', '🌹', '🎄', '🎁', '👶'];
+
+    // Sync external value changes to innerHTML, but avoid loop/cursor jump if they match
+    useEffect(() => {
+        if (editorRef.current && value !== editorRef.current.innerHTML) {
+            editorRef.current.innerHTML = value;
+        }
+    }, [value]);
+
+    const execCmd = (command: string, value: any = null) => {
+        document.execCommand(command, false, value);
+        if (editorRef.current) {
+            editorRef.current.focus();
+            onChange(editorRef.current.innerHTML);
+        }
+    };
+
+    const handleInput = (e: any) => {
+        onChange(e.currentTarget.innerHTML);
+    };
+
+    const insertEmoji = (emoji: string) => {
+        execCmd('insertText', emoji);
+        setShowEmojiPicker(false);
+    }
+
+    return (
+        <div className="bg-slate-50 border border-slate-200 rounded-xl overflow-hidden focus-within:border-indigo-400 focus-within:ring-2 ring-indigo-100 transition-all relative">
+            <div className="flex items-center gap-1 p-2 border-b border-slate-200 bg-white">
+                <button type="button" onClick={() => execCmd('bold')} className="p-2 rounded hover:bg-slate-100 text-slate-600" title="Bold"><Bold size={16}/></button>
+                <button type="button" onClick={() => execCmd('italic')} className="p-2 rounded hover:bg-slate-100 text-slate-600" title="Italic"><Italic size={16}/></button>
+                <button type="button" onClick={() => execCmd('insertUnorderedList')} className="p-2 rounded hover:bg-slate-100 text-slate-600" title="List"><List size={16}/></button>
+                <div className="relative">
+                    <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className={`p-2 rounded hover:bg-slate-100 ${showEmojiPicker ? 'bg-indigo-50 text-indigo-600' : 'text-slate-600'}`} title="Emoji"><Smile size={16}/></button>
+                    {showEmojiPicker && (
+                        <div className="absolute top-full left-0 mt-2 bg-white border border-slate-200 shadow-xl rounded-xl p-2 w-48 grid grid-cols-4 gap-1 z-50">
+                            {EMOJIS.map(emoji => (
+                                <button key={emoji} type="button" onClick={() => insertEmoji(emoji)} className="text-xl p-1.5 hover:bg-slate-50 rounded transition-colors">{emoji}</button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+            <div 
+                ref={editorRef}
+                className="w-full p-4 min-h-[120px] outline-none text-slate-800 font-medium overflow-y-auto [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
+                contentEditable
+                onInput={handleInput}
+                style={{ whiteSpace: 'pre-wrap' }}
+            />
+            {(!value || value === '<br>') && <div className="absolute top-[52px] left-4 text-slate-400 pointer-events-none">{placeholder}</div>}
+        </div>
+    );
 };
 
 const EditorModal = ({ isOpen, title, fields, onClose, onSave, onUpload }: any) => {
@@ -140,7 +205,9 @@ const EditorModal = ({ isOpen, title, fields, onClose, onSave, onUpload }: any) 
                     {fields.map((field: any) => (
                         <div key={field.name}>
                             <label className="block text-sm font-bold text-slate-500 mb-1 uppercase">{field.label}</label>
-                            {field.type === 'textarea' ? (
+                            {field.type === 'richtext' ? (
+                                <RichTextEditor value={formData[field.name] || ''} onChange={(val: string) => handleChange(field.name, val)} placeholder="Type here..." />
+                            ) : field.type === 'textarea' ? (
                                 <textarea value={formData[field.name] || ''} onChange={(e) => handleChange(field.name, e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 focus:border-indigo-400 focus:ring-0 min-h-[100px]" />
                             ) : field.type === 'select' ? (
                                 <div className="relative">
@@ -487,7 +554,7 @@ const TimelineScrapbookView = ({ events, onSelectEvent }: any) => {
 }
 
 export default function App() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<any>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [storageRefState, setStorageRefState] = useState<any>(null);
   const [db, setDb] = useState<any>(null);
@@ -504,6 +571,7 @@ export default function App() {
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const scrollContainerRef = useRef<any>(null);
   const [galleryViewYear, setGalleryViewYear] = useState<string | number | null>(null);
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
   const [editModalConfig, setEditModalConfig] = useState<any>({ isOpen: false, title: '', fields: [], onSave: () => {} });
   const [confirmModalConfig, setConfirmModalConfig] = useState<any>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
@@ -758,7 +826,35 @@ export default function App() {
     });
   };
   const handleDeleteAlbum = (e: any, id: string|number) => { e.stopPropagation(); e.preventDefault(); setConfirmModalConfig({ isOpen: true, title: "Delete", message: "Delete?", onConfirm: () => { dbDelete('albums', id); setConfirmModalConfig((p: any) => ({...p, isOpen:false})); }}); };
-  const saveNewEntry = () => { if (!newEntryContent.trim()) return; const id = Date.now(); const newEntry = { id, date: new Date().toISOString(), content: newEntryContent, mood: "Neutral" }; dbUpdate('journal', id, newEntry); setIsCreatingEntry(false); setNewEntryContent(""); };
+  
+  const saveNewEntry = () => { 
+      if (!newEntryContent.trim()) return; 
+      const id = Date.now(); 
+      const newEntry = { 
+          id, 
+          date: new Date().toISOString(), 
+          content: newEntryContent, 
+          mood: "Neutral",
+          authorId: user?.uid || 'anonymous' // Track ownership
+      }; 
+      dbUpdate('journal', id, newEntry); 
+      setIsCreatingEntry(false); 
+      setNewEntryContent(""); 
+  };
+
+  const handleEditEntry = (entry: any) => {
+      setEditModalConfig({
+          isOpen: true,
+          title: "Edit Entry",
+          fields: [{ name: "content", label: "Content", value: entry.content, type: "richtext" }],
+          onSave: (data: any) => {
+              const updatedEntry = { ...entry, content: data.content };
+              dbUpdate('journal', entry.id, updatedEntry);
+              setEditModalConfig((prev: any) => ({...prev, isOpen: false}));
+          }
+      });
+  };
+
   const deleteEntry = (id: string|number) => { 
       setConfirmModalConfig({
           isOpen: true, 
@@ -781,11 +877,20 @@ export default function App() {
       return acc;
   }, {});
   
-  // Sort years descending
+  // Sort years descending (Newest to Oldest)
   const sortedAlbumYears = Object.keys(albumsByYear).sort((a: any, b: any) => {
       if(a === 'Undated') return 1;
       if(b === 'Undated') return -1;
-      return b - a;
+      return b - a; // Descending
+  });
+
+  // Sort albums within each year (Jan to Dec)
+  Object.keys(albumsByYear).forEach(year => {
+      albumsByYear[year].sort((a: any, b: any) => {
+          const monthA = getMonthNumber(a.month);
+          const monthB = getMonthNumber(b.month);
+          return monthA - monthB; // Ascending
+      });
   });
 
   return (
@@ -794,6 +899,13 @@ export default function App() {
       <ConfirmModal isOpen={confirmModalConfig.isOpen} title={confirmModalConfig.title} message={confirmModalConfig.message} onConfirm={confirmModalConfig.onConfirm} onClose={() => setConfirmModalConfig((prev: any) => ({...prev, isOpen: false}))} />
       <PinModal isOpen={isPinModalOpen} onClose={() => setIsPinModalOpen(false)} onSuccess={() => setIsEditMode(true)} correctPin={appSettings.adminPin} />
       
+      {zoomedImage && (
+        <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 animate-in fade-in" onClick={() => setZoomedImage(null)}>
+            <button onClick={() => setZoomedImage(null)} className="absolute top-4 right-4 text-white p-2 rounded-full hover:bg-white/10"><X size={32} /></button>
+            <img src={zoomedImage} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
+        </div>
+      )}
+
       {/* MOBILE MENU OVERLAY */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 bg-white animate-in slide-in-from-bottom duration-200 flex flex-col">
@@ -820,10 +932,10 @@ export default function App() {
             <NavButton active={activeTab === 'home'} onClick={() => setActiveTab('home')} icon={<Home />} label="Home" />
             <NavButton active={activeTab === 'timeline'} onClick={() => setActiveTab('timeline')} icon={<Calendar />} label="Timeline" />
             <NavButton active={activeTab === 'family'} onClick={() => setActiveTab('family')} icon={<Users />} label="Family" />
+            <NavButton active={activeTab === 'gallery'} onClick={() => setActiveTab('gallery')} icon={<ImageIcon />} label="Gallery" />
             <NavButton active={activeTab === 'friends'} onClick={() => setActiveTab('friends')} icon={<Smile />} label="Friends" />
             <NavButton active={activeTab === 'houses'} onClick={() => setActiveTab('houses')} icon={<Armchair />} label="Homes" />
             <NavButton active={activeTab === 'journal'} onClick={() => setActiveTab('journal')} icon={<Book />} label="Journal" />
-            <NavButton active={activeTab === 'gallery'} onClick={() => setActiveTab('gallery')} icon={<ImageIcon />} label="Gallery" />
          </div>
          <div className="flex flex-col gap-4 mt-auto pb-4">
              {isEditMode && <button onClick={handleUpdateSettings} className="p-3 rounded-full text-slate-300 hover:text-slate-500 hover:bg-slate-100" title="Settings"><Settings size={20} /></button>}
@@ -984,11 +1096,32 @@ export default function App() {
              <div className="space-y-4">
                  <header className="mb-6"><h2 className="text-4xl font-bold text-slate-800">Journal</h2></header>
                  <div className="flex gap-2 mb-4"><button onClick={() => setIsCreatingEntry(!isCreatingEntry)} className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Write Entry</button></div>
-                 {isCreatingEntry && <div className="bg-white p-4 rounded-xl shadow-lg"><textarea value={newEntryContent} onChange={(e) => setNewEntryContent(e.target.value)} className="w-full p-3 border rounded-xl mb-3" placeholder="What happened today?" /><button onClick={saveNewEntry} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold">Save</button></div>}
+                 {isCreatingEntry && (
+                     <div className="bg-white p-4 rounded-xl shadow-lg">
+                         <div className="bg-slate-50 border border-slate-200 rounded-xl overflow-hidden focus-within:border-indigo-400 focus-within:ring-2 ring-indigo-100 transition-all">
+                             <RichTextEditor value={newEntryContent} onChange={setNewEntryContent} placeholder="What happened today?" />
+                         </div>
+                         <button onClick={saveNewEntry} className="mt-3 bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold">Save</button>
+                     </div>
+                 )}
                  {filteredJournal.map(entry => (
                      <div key={entry.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
-                         <div className="font-bold text-indigo-900 border-b pb-2 mb-2 flex justify-between"><span>{new Date(entry.date).toLocaleDateString()}</span>{isEditMode && <button onClick={() => deleteEntry(entry.id)}><Trash2 size={16} className="text-red-400"/></button>}</div>
-                         <p className="text-slate-700">{entry.content}</p>
+                         <div className="font-bold text-indigo-900 border-b pb-2 mb-2 flex justify-between">
+                             <span>{new Date(entry.date).toLocaleDateString()}</span>
+                             <div className="flex gap-2">
+                                 {(isEditMode || (user && entry.authorId === user.uid)) && (
+                                     <>
+                                         <button onClick={() => handleEditEntry(entry)}><Edit2 size={16} className="text-indigo-400 hover:text-indigo-600"/></button>
+                                         <button onClick={() => deleteEntry(entry.id)}><Trash2 size={16} className="text-red-400 hover:text-red-600"/></button>
+                                     </>
+                                 )}
+                             </div>
+                         </div>
+                         <div 
+                             className="text-slate-700 font-medium [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5" 
+                             dangerouslySetInnerHTML={{ __html: entry.content }}
+                             style={{ whiteSpace: 'pre-wrap' }} 
+                         />
                      </div>
                  ))}
              </div>
@@ -1000,7 +1133,7 @@ export default function App() {
              <div className="bg-white">
                  <div className={`h-32 ${selectedPerson.color} relative`}>
                      {isEditMode && (
-                         <div className="absolute top-4 right-4 flex gap-2">
+                         <div className="absolute top-4 right-14 flex gap-2 z-20">
                              <button onClick={startEditPerson} className="bg-white/20 p-2 rounded-full text-white hover:bg-white/40"><Edit2 size={18}/></button>
                              <button onClick={handleDeletePersonAny} className="bg-white/20 p-2 rounded-full text-white hover:bg-red-500"><Trash2 size={18}/></button>
                          </div>
@@ -1008,7 +1141,12 @@ export default function App() {
                      <div className="absolute -bottom-10 left-8 w-20 h-20 bg-white rounded-full p-1 shadow-lg overflow-hidden">
                          <div className={`w-full h-full rounded-full ${selectedPerson.color} flex items-center justify-center overflow-hidden`}>
                             {selectedPerson.image ? (
-                                <img src={selectedPerson.image} alt={selectedPerson.name} className="w-full h-full object-cover" />
+                                <img 
+                                    src={selectedPerson.image} 
+                                    alt={selectedPerson.name} 
+                                    className="w-full h-full object-cover cursor-zoom-in" 
+                                    onClick={() => setZoomedImage(selectedPerson.image)}
+                                />
                             ) : (
                                 <span className="text-3xl font-bold text-white">{selectedPerson.name.charAt(0)}</span>
                             )}
