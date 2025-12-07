@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Heart, Calendar, MapPin, Briefcase, Camera, Home, Music, X, ChevronRight, Sun, Baby, Users, Star, Globe, Smile, Armchair, Book, Image as ImageIcon, Edit2, Save, Plus, Lock, Unlock, Trash2, ArrowLeft, ArrowRight, Maximize, Upload, ZoomIn, ZoomOut, Cake, Loader2, Newspaper, StickyNote, Settings, LogOut, Menu, Move, Bold, Italic, List
+  Heart, Calendar, MapPin, Briefcase, Camera, Home, Music, X, ChevronRight, Sun, Baby, Users, Star, Globe, Smile, Armchair, Book, Image as ImageIcon, Edit2, Save, Plus, Lock, Unlock, Trash2, ArrowLeft, ArrowRight, Maximize, Upload, ZoomIn, ZoomOut, Cake, Loader2, Newspaper, StickyNote, Settings, LogOut, Menu, Move, Bold, Italic, List, Gift, RefreshCw, Cloud, CloudRain, Snowflake, Wind, ExternalLink
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -32,6 +32,60 @@ const safeRender = (val: any) => {
 const getMonthNumber = (monthName: string) => {
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     return months.indexOf(monthName);
+};
+
+// --- HISTORY DATA ENGINE ---
+const SPECIFIC_DATE_FACTS: any = {
+    '01-01': { text: "Ne'er-day! The First of January is a traditional celebration in Scotland.", source: "Scottish Tradition" },
+    '01-25': { text: "Burns Night! Scots celebrate the birth of Robert Burns with haggis and poetry.", source: "Scottish Culture" },
+    '11-30': { text: "St Andrew's Day, the feast day of Scotland's patron saint.", source: "Scottish Celebration" },
+    '12-25': { text: "Christmas Day. A time for family and roast turkey.", source: "Celebration" },
+    '12-31': { text: "Hogmanay! The Scots word for the last day of the old year.", source: "Scottish Tradition" },
+    '02-14': { text: "Valentine's Day. A day for love and friendship.", source: "Celebration" },
+    '10-31': { text: "Halloween. Did you know the tradition of 'guising' originated in Scotland?", source: "Scottish Tradition" },
+    '07-01': { text: "The Scottish Parliament was officially reconvened on this day in 1999.", source: "Modern History" },
+};
+
+const GENERAL_FACTS = [
+    { text: "Kirkintilloch was famously a 'dry town' from 1920 until 1968.", source: "Local History" },
+    { text: "The Lion Foundry in Kirkintilloch cast the iconic red telephone boxes seen across the UK.", source: "Local Industry" },
+    { text: "The Antonine Wall runs through Peel Park, marking the Roman Empire's northern frontier.", source: "Ancient History" },
+    { text: "Rita Cowan of Kirkintilloch helped found the Japanese Whisky industry in 1934.", source: "Local Legend" },
+    { text: "In 1964, Queen Elizabeth II opened the Forth Road Bridge.", source: "Scotland 1960s" },
+    { text: "Sean Connery's first Bond film 'Dr. No' premiered in 1962.", source: "Cinema" },
+    { text: "Glasgow was the European City of Culture in 1990.", source: "Glasgow 1990" },
+    { text: "The Garden Festival revitalized Glasgow's Prince's Dock in 1988.", source: "Glasgow 1988" },
+    { text: "Dolly the Sheep was born near Edinburgh in 1996.", source: "Science" },
+    { text: "The Bay City Rollers hit #1 with 'Bye Bye Baby' in 1975.", source: "Music" },
+    { text: "The Lisbon Lions (Celtic) won the European Cup in 1967.", source: "Sport" },
+    { text: "Queen Elizabeth II's coronation took place in 1953.", source: "Royal Family" },
+    { text: "The UK switched to decimal currency in 1971.", source: "Daily Life" },
+    { text: "The Beatles released 'Let It Be' in 1970.", source: "Music" },
+    { text: "Neil Armstrong walked on the moon in 1969.", source: "World 1969" },
+    { text: "Concorde's first commercial flight was in 1976.", source: "Travel" },
+    { text: "A pint of milk cost about 5 pence in 1970.", source: "Cost of Living" },
+    { text: "Color TV broadcasts began on BBC2 in 1967.", source: "Technology" },
+    { text: "Barbie dolls were introduced in 1959.", source: "Toys" },
+    { text: "Coronation Street first aired in 1960.", source: "TV" },
+    { text: "Tunnock's Teacakes were created in 1956.", source: "Food" },
+    { text: "Channel 4 launched in the UK in 1982.", source: "TV" },
+    { text: "The Forth and Clyde Canal reopened in 2001.", source: "Local Geography" }
+];
+
+const getHistoryForDate = (date: Date) => {
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const key = `${month}-${day}`;
+    
+    if (SPECIFIC_DATE_FACTS[key]) return SPECIFIC_DATE_FACTS[key];
+    
+    // Deterministic random based on day of year
+    const start = new Date(date.getFullYear(), 0, 0);
+    const diff = (date as any) - (start as any);
+    const oneDay = 1000 * 60 * 60 * 24;
+    const dayOfYear = Math.floor(diff / oneDay);
+    
+    return GENERAL_FACTS[dayOfYear % GENERAL_FACTS.length];
 };
 
 const ICON_MAP: any = {
@@ -66,30 +120,30 @@ const MONTH_OPTIONS = [
 ];
 
 // --- DEFAULT DATA ---
-const DEFAULT_SETTINGS = { siteTitle: "Jackie's Memory Garden", adminPin: "1954", familyPin: "1234" };
+const DEFAULT_SETTINGS = { siteTitle: "Jackie's Memories", adminPin: "1954", familyPin: "1234" };
 const DEFAULT_HOMES = [{ id: 'bungalow', name: 'The Bungalow', address: '12 Garden Row', years: '2015 - Present', color: 'bg-indigo-500', image: '', description: "Your lovely home.", features: [], rooms: [] }];
 const DEFAULT_FRIENDS = [{ id: 'margaret', name: 'Margaret Hill', metAt: 'The Library', frequency: 'Tuesdays', role: 'Best Friend', color: 'bg-emerald-500', image: '', details: "Met at work in 1985.", memories: [] }];
 const DEFAULT_FAMILY = [
-  { id: 'ann', name: 'Ann Rankin', relation: 'Mum', generation: 0, role: 'Mother', color: 'bg-violet-400', image: '', details: "Jackie's Mum.", spouseId: 'abbie', dob: '1928' },
-  { id: 'abbie', name: 'Abbie Rankin', relation: 'Dad', generation: 0, role: 'Father', color: 'bg-slate-500', image: '', details: "Jackie's Dad.", spouseId: 'ann', dob: '1925' },
-  { id: 'jackie', name: 'Jackie', relation: 'Me', generation: 1, role: 'Matriarch', color: 'bg-rose-500', image: '', details: "Born 1954.", parentId: 'ann', spouseId: 'kenny', dob: '1954' },
-  { id: 'kenny', name: 'Kenny', relation: 'Husband', generation: 1, role: 'Husband', color: 'bg-blue-600', image: '', details: "Jackie's Husband.", spouseId: 'jackie', dob: '1952' },
-  { id: 'pam', name: 'Pam', relation: 'Sister', generation: 1, role: 'Sister', color: 'bg-purple-400', image: '', details: "Jackie's sister.", parentId: 'ann' },
+  { id: 'ann', name: 'Ann Rankin', relation: 'Mum', generation: 0, role: 'Mother', color: 'bg-violet-400', image: '', details: "Jackie's Mum.", spouseId: 'abbie', dob: '1928-05-12' },
+  { id: 'abbie', name: 'Abbie Rankin', relation: 'Dad', generation: 0, role: 'Father', color: 'bg-slate-500', image: '', details: "Jackie's Dad.", spouseId: 'ann', dob: '1925-08-20' },
+  { id: 'jackie', name: 'Jackie', relation: 'Me', generation: 1, role: 'Matriarch', color: 'bg-rose-500', image: '', details: "Born 1954.", parentId: 'ann', spouseId: 'kenny', dob: '1954-12-05' },
+  { id: 'kenny', name: 'Kenny', relation: 'Husband', generation: 1, role: 'Husband', color: 'bg-blue-600', image: '', details: "Jackie's Husband.", spouseId: 'jackie', dob: '1952-03-15' },
+  { id: 'pam', name: 'Pam', relation: 'Sister', generation: 1, role: 'Sister', color: 'bg-purple-400', image: '', details: "Jackie's sister.", parentId: 'ann', dob: '1958-06-10' },
   { id: 'lindsay', name: 'Lindsay', relation: 'Sister', generation: 1, role: 'Sister', color: 'bg-purple-400', image: '', details: "Jackie's sister.", parentId: 'ann', spouseId: 'eugene' },
   { id: 'eugene', name: 'Eugene', relation: 'Brother-in-Law', generation: 1, role: 'Brother-in-Law', color: 'bg-slate-400', image: '', details: "Lindsay's husband.", spouseId: 'lindsay' },
-  { id: 'kerry', name: 'Kerry', relation: 'Daughter', generation: 2, role: 'Daughter', color: 'bg-pink-500', image: '', details: "Daughter of Jackie & Kenny.", parentId: 'jackie', spouseId: 'craig', dob: '1982' },
+  { id: 'kerry', name: 'Kerry', relation: 'Daughter', generation: 2, role: 'Daughter', color: 'bg-pink-500', image: '', details: "Daughter of Jackie & Kenny.", parentId: 'jackie', spouseId: 'craig', dob: '1982-04-20' },
   { id: 'craig', name: 'Craig', relation: 'Partner', generation: 2, role: 'Son-in-Law', color: 'bg-slate-400', image: '', details: "Kerry's Partner.", spouseId: 'kerry' },
-  { id: 'grant', name: 'Grant', relation: 'Son', generation: 2, role: 'Son', color: 'bg-teal-500', image: '', details: "Son of Jackie & Kenny.", parentId: 'jackie', spouseId: 'tina', dob: '1985' },
+  { id: 'grant', name: 'Grant', relation: 'Son', generation: 2, role: 'Son', color: 'bg-teal-500', image: '', details: "Son of Jackie & Kenny.", parentId: 'jackie', spouseId: 'tina', dob: '1985-09-12' },
   { id: 'tina', name: 'Tina', relation: 'Wife', generation: 2, role: 'Daughter-in-Law', color: 'bg-slate-400', image: '', details: "Grant's Wife.", spouseId: 'grant' },
-  { id: 'jenna', name: 'Jenna', relation: 'Daughter', generation: 2, role: 'Daughter', color: 'bg-pink-500', image: '', details: "Daughter of Jackie & Kenny.", parentId: 'jackie', spouseId: 'cammy', dob: '1990' },
+  { id: 'jenna', name: 'Jenna', relation: 'Daughter', generation: 2, role: 'Daughter', color: 'bg-pink-500', image: '', details: "Daughter of Jackie & Kenny.", parentId: 'jackie', spouseId: 'cammy', dob: '1990-11-05' },
   { id: 'cammy', name: 'Cammy', relation: 'Fiance', generation: 2, role: 'Son-in-Law', color: 'bg-slate-400', image: '', details: "Jenna's Fiance.", spouseId: 'jenna' },
   { id: 'murray', name: 'Murray', relation: 'Nephew', generation: 2, role: 'Nephew', color: 'bg-indigo-400', image: '', details: "Pam's Son.", parentId: 'pam' },
   { id: 'abby', name: 'Abby', relation: 'Niece', generation: 2, role: 'Niece', color: 'bg-fuchsia-400', image: '', details: "Pam's Daughter.", parentId: 'pam' },
   { id: 'lewis', name: 'Lewis', relation: 'Nephew', generation: 2, role: 'Nephew', color: 'bg-indigo-400', image: '', details: "Lindsay's Son.", parentId: 'lindsay' },
   { id: 'faye', name: 'Faye', relation: 'Niece', generation: 2, role: 'Niece', color: 'bg-fuchsia-400', image: '', details: "Lindsay's Daughter.", parentId: 'lindsay' },
-  { id: 'paige', name: 'Paige', relation: 'Granddaughter', generation: 3, role: 'Granddaughter', color: 'bg-amber-400', image: '', details: "Kerry's Daughter.", parentId: 'kerry' },
-  { id: 'anna', name: 'Anna', relation: 'Granddaughter', generation: 3, role: 'Granddaughter', color: 'bg-amber-400', image: '', details: "Kerry's Daughter.", parentId: 'kerry' },
-  { id: 'willow', name: 'Willow', relation: 'Granddaughter', generation: 3, role: 'Granddaughter', color: 'bg-amber-400', image: '', details: "Grant's Daughter.", parentId: 'grant' }
+  { id: 'paige', name: 'Paige', relation: 'Granddaughter', generation: 3, role: 'Granddaughter', color: 'bg-amber-400', image: '', details: "Kerry's Daughter.", parentId: 'kerry', dob: '2012-07-15' },
+  { id: 'anna', name: 'Anna', relation: 'Granddaughter', generation: 3, role: 'Granddaughter', color: 'bg-amber-400', image: '', details: "Kerry's Daughter.", parentId: 'kerry', dob: '2015-02-28' },
+  { id: 'willow', name: 'Willow', relation: 'Granddaughter', generation: 3, role: 'Granddaughter', color: 'bg-amber-400', image: '', details: "Grant's Daughter.", parentId: 'grant', dob: '2018-05-30' }
 ];
 const DEFAULT_TIMELINE = [
   { year: 1976, title: "Wedding Day", category: "family", icon: "heart", color: "bg-red-500", description: "Married Kenny.", location: "St. Mary's", type: "memory" }
@@ -115,10 +169,8 @@ const Modal = ({ isOpen, onClose, children, color = "bg-white", zIndex = "z-50" 
 const RichTextEditor = ({ value, onChange, placeholder }: any) => {
     const editorRef = useRef<HTMLDivElement>(null);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-
     const EMOJIS = ['😊', '❤️', '🎉', '👍', '🎂', '🌟', '👨‍👩‍👧‍👦', '🏡', '🌸', '😂', '😢', '🙌', '🌹', '🎄', '🎁', '👶'];
-
-    // Sync external value changes to innerHTML, but avoid loop/cursor jump if they match
+    
     useEffect(() => {
         if (editorRef.current && value !== editorRef.current.innerHTML) {
             editorRef.current.innerHTML = value;
@@ -265,9 +317,9 @@ const LoginScreen = ({ onLogin, correctPin }: any) => {
     return (
         <div className="fixed inset-0 bg-slate-900 flex items-center justify-center z-[100] p-4">
             <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden">
-                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-8 text-center"><Heart className="w-16 h-16 text-white mx-auto mb-4 animate-pulse" /><h1 className="text-3xl font-bold text-white">Memories</h1><p className="text-indigo-100 mt-2">Welcome to our memory garden.</p></div>
+                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-8 text-center"><Heart className="w-16 h-16 text-white mx-auto mb-4 animate-pulse" /><h1 className="text-3xl font-bold text-white">Jackie's Memories</h1><p className="text-indigo-100 mt-2">Welcome to Jackie's memories.</p></div>
                 <div className="p-8">
-                    <form onSubmit={handleSubmit} className="flex flex-col items-center"><p className="text-slate-500 mb-6 text-center font-medium">Please enter the family access code to enter.</p><input type="password" value={pin} onChange={(e) => { setPin(e.target.value); setError(false); }} className={`w-48 text-center text-3xl tracking-[0.5em] p-4 border-2 rounded-2xl font-bold text-slate-800 focus:ring-0 mb-2 ${error ? 'border-red-400 bg-red-50' : 'border-slate-200 focus:border-indigo-500'}`} maxLength={4} placeholder="••••" autoFocus />{error && <p className="text-red-500 font-bold text-sm mb-6">Incorrect Code. Try again.</p>}<button type="submit" className="w-full bg-indigo-600 text-white font-bold py-4 rounded-xl hover:bg-indigo-700 transition-all shadow-lg mt-4 flex items-center justify-center gap-2">Enter Garden <ArrowRight size={20} /></button></form>
+                    <form onSubmit={handleSubmit} className="flex flex-col items-center"><p className="text-slate-500 mb-6 text-center font-medium">Please enter the family access code to enter.</p><input type="password" value={pin} onChange={(e) => { setPin(e.target.value); setError(false); }} className={`w-48 text-center text-3xl tracking-[0.5em] p-4 border-2 rounded-2xl font-bold text-slate-800 focus:ring-0 mb-2 ${error ? 'border-red-400 bg-red-50' : 'border-slate-200 focus:border-indigo-500'}`} maxLength={4} placeholder="••••" autoFocus />{error && <p className="text-red-500 font-bold text-sm mb-6">Incorrect Code. Try again.</p>}<button type="submit" className="w-full bg-indigo-600 text-white font-bold py-4 rounded-xl hover:bg-indigo-700 transition-all shadow-lg mt-4 flex items-center justify-center gap-2">Enter <ArrowRight size={20} /></button></form>
                 </div>
             </div>
         </div>
@@ -575,6 +627,7 @@ export default function App() {
 
   const [editModalConfig, setEditModalConfig] = useState<any>({ isOpen: false, title: '', fields: [], onSave: () => {} });
   const [confirmModalConfig, setConfirmModalConfig] = useState<any>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+  const [birthdayModalOpen, setBirthdayModalOpen] = useState(false);
   
   const [journalEntries, setJournalEntries] = useState<any[]>([]);
   const [albums, setAlbums] = useState<any[]>([]);
@@ -596,99 +649,14 @@ export default function App() {
   const toggleFilter = (key: any) => { setFilters((prev: any) => ({ ...prev, [key]: !prev[key] })); };
   const [isCreatingEntry, setIsCreatingEntry] = useState(false);
   const [newEntryContent, setNewEntryContent] = useState("");
-
-  // Calculate timeline data at the top so it's available
-  const birthdayEvents = familyMembers.filter(m => m.dob).map(m => ({ 
-      id: `bd-${m.id}`, 
-      year: parseInt(m.dob.split('-')[0] || m.dob), 
-      title: `${m.name} born`, 
-      category: 'birthday', 
-      icon: 'cake', 
-      color: 'bg-rose-300', 
-      description: `Birthday of ${m.name}.`, 
-      location: 'Family', 
-      type: 'memory',
-      image: m.image || "" // Inherit image from person
-  }));
-  const allTimelineEvents = [...timelineEvents, ...birthdayEvents];
-  const sortedTimeline = allTimelineEvents.filter(item => filters[item.category as keyof typeof filters]).filter(item => item.year >= startYear && item.year <= endYear).sort((a, b) => a.year - b.year);
-  const filteredJournal = journalEntries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  const getGreeting = () => { const hour = new Date().getHours(); if (hour < 12) return "Good Morning"; if (hour < 18) return "Good Afternoon"; return "Good Evening"; };
-
-  useEffect(() => {
-    const storedAuth = localStorage.getItem('familyAuth');
-    if (storedAuth === 'true') setIsAuthenticated(true);
-
-    const initFirebase = async () => {
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const dbInstance = getFirestore(app);
-        const storageInstance = getStorage(app);
-        
-        setDb(dbInstance);
-        setStorageRefState(storageInstance);
-        const currentAppId = "jackie-family-app-001";
-        setAppId(currentAppId);
-
-        try {
-             await signInAnonymously(auth);
-        } catch (error) {
-            console.error("Auth Error:", error);
-        }
-        
-        onAuthStateChanged(auth, (u: any) => setUser(u));
-    };
-    initFirebase();
-  }, []);
-
-  useEffect(() => {
-      const timer = setInterval(() => setCurrentDate(new Date()), 60000);
-      return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-      if (!db || !user) return;
-      const dataPath = `artifacts/${appId}/public/data`;
-
-      const unsubMeta = onSnapshot(doc(db, `${dataPath}/metadata`, 'settings'), (docSnap: any) => {
-            if (docSnap.exists()) setAppSettings(docSnap.data() as any);
-            else setDoc(doc(db, `${dataPath}/metadata`, 'settings'), DEFAULT_SETTINGS);
-      }, (err: any) => console.log("Waiting for permissions...", err.code));
-
-      const unsubFamily = onSnapshot(collection(db, `${dataPath}/familyMembers`), (snap: any) => {
-        const data = snap.docs.map((d: any) => ({ ...d.data(), id: d.id })); 
-        if (data.length > 0) {
-            const merged = DEFAULT_FAMILY.map(def => {
-                const found = data.find((d: any) => d.id === def.id);
-                return found ? { ...def, ...found } : def;
-            });
-            setFamilyMembers(merged);
-        }
-      }, (err: any) => console.log("Using default family data due to:", err.code));
-      
-      const unsubTimeline = onSnapshot(collection(db, `${dataPath}/timelineEvents`), (snap: any) => {
-            const data = snap.docs.map((d: any) => ({ ...d.data(), id: d.id }));
-            if (data.length > 0) setTimelineEvents(data);
-            else if (snap.empty) DEFAULT_TIMELINE.forEach(async (m) => await setDoc(doc(db, `${dataPath}/timelineEvents`, String(m.year + m.title)), m));
-      }, (err: any) => console.log("Waiting for permissions...", err.code));
-      
-      const unsubFriends = onSnapshot(collection(db, `${dataPath}/friends`), (snap: any) => { const data = snap.docs.map((d: any) => ({ ...d.data(), id: d.id })); if (data.length > 0) setFriends(data); else if(snap.empty) DEFAULT_FRIENDS.forEach(async (m, i) => await setDoc(doc(db, `${dataPath}/friends`, String(i)), m)); }, (err: any) => console.log("Waiting for permissions...", err.code));
-      const unsubHomes = onSnapshot(collection(db, `${dataPath}/homes`), (snap: any) => { const data = snap.docs.map((d: any) => ({ ...d.data(), id: d.id })); if (data.length > 0) setHomes(data); else if(snap.empty) DEFAULT_HOMES.forEach(async (m) => await setDoc(doc(db, `${dataPath}/homes`, m.id), m)); }, (err: any) => console.log("Waiting for permissions...", err.code));
-      const unsubJournal = onSnapshot(collection(db, `${dataPath}/journal`), (snap: any) => { const data = snap.docs.map((d: any) => ({ ...d.data(), id: d.id })); if (data.length > 0) setJournalEntries(data); else if(snap.empty) DEFAULT_JOURNAL.forEach(async (m) => await setDoc(doc(db, `${dataPath}/journal`, String(m.id)), m)); }, (err: any) => console.log("Waiting for permissions...", err.code));
-      const unsubAlbums = onSnapshot(collection(db, `${dataPath}/albums`), (snap: any) => { const data = snap.docs.map((d: any) => ({ ...d.data(), id: d.id })); if (data.length > 0) setAlbums(data); else if(snap.empty) DEFAULT_ALBUMS.forEach(async (m) => await setDoc(doc(db, `${dataPath}/albums`, String(m.id)), m)); }, (err: any) => console.log("Waiting for permissions...", err.code));
-      const unsubProfile = onSnapshot(collection(db, `${dataPath}/metadata`), (snap: any) => { snap.docs.forEach((d: any) => { if (d.id === 'profile') setProfile(d.data() as any); if (d.id === 'quickPrompt') setQuickPrompt(d.data() as any); }); }, (err: any) => console.log("Waiting for permissions...", err.code));
-
-      return () => {
-          unsubMeta();
-          unsubFamily();
-          unsubTimeline();
-          unsubFriends();
-          unsubHomes();
-          unsubJournal();
-          unsubAlbums();
-          unsubProfile();
-      };
-  }, [db, user, appId]);
+  
+  const [dailyMemory, setDailyMemory] = useState<any>(null);
+  const [nextBirthday, setNextBirthday] = useState<any>(null);
+  const [allUpcomingBirthdays, setAllUpcomingBirthdays] = useState<any[]>([]);
+  const [dailyAlbum, setDailyAlbum] = useState<any>(null);
+  
+  // Weather state
+  const [weatherData, setWeatherData] = useState<any>(null);
 
   const dbUpdate = async (collectionName: string, id: string|number, data: any) => { 
       if (!db) return; 
@@ -766,7 +734,7 @@ export default function App() {
   const startEditPerson = () => { 
       if (selectedPerson.hasOwnProperty('generation')) { 
           // It's family
-          const fields = [{ name: "name", label: "Name", value: selectedPerson.name }, { name: "relation", label: "Relation", value: selectedPerson.relation }, { name: "dob", label: "DOB", value: selectedPerson.dob }, { name: "image", label: "Photo", value: selectedPerson.image, type: "file" }, { name: "details", label: "Details", value: selectedPerson.details, type: "textarea" }]; 
+          const fields = [{ name: "name", label: "Name", value: selectedPerson.name }, { name: "relation", label: "Relation", value: selectedPerson.relation }, { name: "dob", label: "DOB (YYYY-MM-DD)", value: selectedPerson.dob }, { name: "image", label: "Photo", value: selectedPerson.image, type: "file" }, { name: "details", label: "Details", value: selectedPerson.details, type: "textarea" }]; 
           setEditModalConfig({ isOpen: true, title: "Edit Member", fields, onSave: (data: any) => { const updated = { ...selectedPerson, ...data }; dbUpdate('familyMembers', selectedPerson.id, updated); setSelectedPerson(updated); setEditModalConfig((p: any) => ({...p, isOpen:false})); }, onUpload: handleUpload }); 
       } else { 
           // It's a friend
@@ -867,31 +835,109 @@ export default function App() {
       }); 
   };
 
-  if (!isAuthenticated) return <LoginScreen onLogin={handleFamilyLogin} correctPin={appSettings.familyPin} />;
+  // --- WEATHER WIDGET LOGIC ---
+  useEffect(() => {
+    const fetchWeather = async () => {
+        try {
+            // Coordinates for Kirkintilloch
+            const response = await fetch('https://api.open-meteo.com/v1/forecast?latitude=55.938&longitude=-4.156&current=temperature_2m,weather_code&wind_speed_unit=mph');
+            const data = await response.json();
+            if (data && data.current) {
+                setWeatherData(data.current);
+            }
+        } catch (err) {
+            console.log("Weather fetch failed (likely offline or blocked)", err);
+        }
+    };
+    fetchWeather();
+    // Refresh weather every 30 mins
+    const interval = setInterval(fetchWeather, 1800000); 
+    return () => clearInterval(interval);
+  }, []);
 
-  // Group Albums by Year
-  const albumsByYear = albums.reduce((acc: any, album: any) => {
-      const year = album.year || 'Undated';
-      if (!acc[year]) acc[year] = [];
-      acc[year].push(album);
-      return acc;
-  }, {});
-  
-  // Sort years descending (Newest to Oldest)
-  const sortedAlbumYears = Object.keys(albumsByYear).sort((a: any, b: any) => {
-      if(a === 'Undated') return 1;
-      if(b === 'Undated') return -1;
-      return b - a; // Descending
-  });
+  const getWeatherIcon = (code: number) => {
+      // WMO Weather interpretation codes
+      if (code === 0 || code === 1) return <Sun size={24} className="text-amber-500" />;
+      if (code === 2 || code === 3) return <Cloud size={24} className="text-slate-400" />;
+      if ([45, 48].includes(code)) return <Wind size={24} className="text-slate-300" />;
+      if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(code)) return <CloudRain size={24} className="text-blue-400" />;
+      if ([71, 73, 75, 85, 86].includes(code)) return <Snowflake size={24} className="text-sky-200" />;
+      return <Cloud size={24} className="text-slate-400" />;
+  };
 
-  // Sort albums within each year (Jan to Dec)
-  Object.keys(albumsByYear).forEach(year => {
-      albumsByYear[year].sort((a: any, b: any) => {
-          const monthA = getMonthNumber(a.month);
-          const monthB = getMonthNumber(b.month);
-          return monthA - monthB; // Ascending
-      });
-  });
+  // --- WIDGET LOGIC: ON THIS DAY, BIRTHDAY, ALBUM ---
+  useEffect(() => {
+    // 1. ON THIS DAY
+    const todayMonth = currentDate.getMonth(); 
+    const todayDate = currentDate.getDate();
+    
+    const journalMatch = journalEntries.find(entry => {
+        const d = new Date(entry.date);
+        return d.getMonth() === todayMonth && d.getDate() === todayDate;
+    });
+
+    const randomFact = getHistoryForDate(currentDate);
+
+    if (journalMatch) {
+        setDailyMemory({ type: 'journal', title: 'On this day you wrote...', text: journalMatch.content.replace(/<[^>]*>?/gm, '').substring(0, 100) + "...", icon: <Book size={24} className="text-emerald-600"/>, color: 'bg-emerald-100 text-emerald-900', secondary: randomFact });
+    } else {
+        // Changed fallback title to "On This Day in History" as requested
+        setDailyMemory({ type: 'history', title: `On This Day in History`, text: randomFact.text, subtext: randomFact.source, icon: <Globe size={24} className="text-amber-600"/>, color: 'bg-amber-100 text-amber-900' });
+    }
+
+    // 2. NEXT BIRTHDAY
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const currentYear = today.getFullYear();
+    
+    const upcomingBirthdays = familyMembers
+        .filter(m => m.dob && m.dob.includes('-')) 
+        .map(m => {
+            const [y, month, d] = m.dob.split('-').map(Number);
+            let nextBday = new Date(currentYear, month - 1, d);
+            if (nextBday < today) nextBday = new Date(currentYear + 1, month - 1, d);
+            const diffTime = Math.abs(nextBday.getTime() - today.getTime());
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+            return { ...m, daysUntil: diffDays, nextDate: nextBday };
+        })
+        .sort((a, b) => a.daysUntil - b.daysUntil);
+        
+    if (upcomingBirthdays.length > 0) {
+        setNextBirthday(upcomingBirthdays[0]);
+        setAllUpcomingBirthdays(upcomingBirthdays);
+    }
+
+    // 3. ALBUM OF THE DAY
+    if (albums.length > 0) {
+        const todayStr = new Date().toDateString();
+        const stored = localStorage.getItem('dailyAlbum');
+        let storedData = stored ? JSON.parse(stored) : { date: '', albumId: '', seenIds: [] };
+
+        if (storedData.date !== todayStr) {
+            const availableAlbums = albums.filter(a => !storedData.seenIds.includes(a.id));
+            let selectedAlbum;
+            if (availableAlbums.length === 0) {
+                selectedAlbum = albums[Math.floor(Math.random() * albums.length)];
+                storedData = { date: todayStr, albumId: selectedAlbum.id, seenIds: [selectedAlbum.id] };
+            } else {
+                selectedAlbum = availableAlbums[Math.floor(Math.random() * availableAlbums.length)];
+                storedData = { date: todayStr, albumId: selectedAlbum.id, seenIds: [...storedData.seenIds, selectedAlbum.id] };
+            }
+            localStorage.setItem('dailyAlbum', JSON.stringify(storedData));
+            setDailyAlbum(selectedAlbum);
+        } else {
+            const found = albums.find(a => a.id === storedData.albumId);
+            setDailyAlbum(found || albums[0]);
+        }
+    }
+  }, [currentDate, journalEntries, albums, familyMembers]);
+
+  // Derived state for timeline
+  const birthdayEvents = familyMembers.filter(m => m.dob).map(m => ({ id: `bd-${m.id}`, year: parseInt(m.dob.split('-')[0] || m.dob), title: `${m.name} born`, category: 'birthday', icon: 'cake', color: 'bg-rose-300', description: `Birthday of ${m.name}.`, location: 'Family', type: 'memory', image: m.image || "" }));
+  const allTimelineEvents = [...timelineEvents, ...birthdayEvents];
+  const sortedTimeline = allTimelineEvents.filter(item => filters[item.category as keyof typeof filters]).filter(item => item.year >= startYear && item.year <= endYear).sort((a, b) => a.year - b.year);
+  const filteredJournal = journalEntries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const getGreeting = () => { const hour = new Date().getHours(); if (hour < 12) return "Good Morning"; if (hour < 18) return "Good Afternoon"; return "Good Evening"; };
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-24 md:pb-0 md:pl-20">
@@ -960,22 +1006,81 @@ export default function App() {
                <h1 className="text-4xl md:text-5xl font-bold text-slate-800 mt-1">{getGreeting()}, <span className="text-indigo-600">{(profile?.name || "Jackie").split(' ')[0]}.</span></h1>
             </header>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-               <div className="relative bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
+               {/* 1. WELCOME CARD + WEATHER */}
+               <div className="relative bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg flex flex-col justify-between">
                   {isEditMode && <button onClick={handleEditProfile} className="absolute top-3 right-3 bg-white/20 p-1.5 rounded-full"><Edit2 size={14}/></button>}
-                  <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center text-3xl mb-4">👩‍🦳</div>
-                  <h2 className="text-2xl font-bold">{profile?.name || "Welcome"}</h2>
-                  <p className="opacity-90">{profile?.details || "..."}</p>
+                  <div className="flex justify-between items-start">
+                    <div>
+                        <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center text-3xl mb-4">👩‍🦳</div>
+                        <h2 className="text-2xl font-bold">{profile?.name || "Welcome"}</h2>
+                        <p className="opacity-90">{profile?.details || "..."}</p>
+                    </div>
+                    {weatherData && (
+                        <a href="https://www.bbc.co.uk/weather/2645607" target="_blank" rel="noopener noreferrer" className="bg-white/20 backdrop-blur-sm p-3 rounded-xl text-center min-w-[80px] hover:bg-white/30 transition-colors cursor-pointer block text-white no-underline">
+                            <div className="flex justify-center mb-1">{getWeatherIcon(weatherData.weather_code)}</div>
+                            <span className="text-xl font-bold block">{Math.round(weatherData.temperature_2m)}°C</span>
+                            <p className="text-[10px] uppercase font-bold opacity-80 mt-1 flex items-center justify-center gap-1">Kirkintilloch <ExternalLink size={8}/></p>
+                        </a>
+                    )}
+                  </div>
                </div>
-               <div className="relative bg-amber-100 rounded-2xl p-6 text-amber-900 shadow-sm cursor-pointer hover:bg-amber-200 transition-colors" onClick={() => setActiveTab('family')}>
+
+               {/* 2. ON THIS DAY / REMEMBER THIS CARD */}
+               <div className={`relative rounded-2xl p-6 shadow-sm cursor-pointer transition-colors ${dailyMemory ? dailyMemory.color : 'bg-amber-100 text-amber-900 hover:bg-amber-200'}`} onClick={() => dailyMemory?.onClick ? dailyMemory.onClick() : setActiveTab('family')}>
                   {isEditMode && <button onClick={handleEditPrompt} className="absolute top-3 right-3 bg-white/40 p-1.5 rounded-full"><Edit2 size={14}/></button>}
-                  <div className="flex items-center gap-2 mb-2 font-bold text-amber-700"><Sun size={20}/> REMEMBER THIS?</div>
-                  <p className="text-lg font-medium leading-snug">"{quickPrompt?.text || "..."}"</p>
+                  
+                  {dailyMemory ? (
+                      <div className="h-full flex flex-col justify-between">
+                          <div className="flex items-center gap-2 mb-2 font-bold opacity-80">
+                              {dailyMemory.icon}
+                              <span className="uppercase text-xs tracking-wider">{dailyMemory.title}</span>
+                          </div>
+                          <div>
+                            <p className="text-lg font-medium leading-snug">"{dailyMemory.text}"</p>
+                            {dailyMemory.subtext && <p className="text-xs font-bold mt-2 opacity-60 uppercase">{dailyMemory.subtext}</p>}
+                          </div>
+                      </div>
+                  ) : (
+                      <>
+                        <div className="flex items-center gap-2 mb-2 font-bold text-amber-700"><Sun size={20}/> REMEMBER THIS?</div>
+                        <p className="text-lg font-medium leading-snug">"{quickPrompt?.text || "..."}"</p>
+                      </>
+                  )}
                </div>
+
+               {/* 3. NEXT BIRTHDAY WIDGET */}
+               {nextBirthday && (
+                   <div className="relative bg-rose-50 rounded-2xl p-6 shadow-sm cursor-pointer hover:bg-rose-100 transition-colors" onClick={() => setBirthdayModalOpen(true)}>
+                        <div className="flex items-center gap-2 mb-2 font-bold text-rose-600"><Cake size={20}/> UPCOMING BIRTHDAY</div>
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-rose-200 rounded-full flex items-center justify-center text-rose-600 font-bold text-xl">{nextBirthday.name.charAt(0)}</div>
+                            <div>
+                                <p className="text-lg font-bold text-rose-900">{nextBirthday.name}</p>
+                                <p className="text-sm text-rose-700">{nextBirthday.daysUntil === 0 ? "Today!" : `In ${nextBirthday.daysUntil} days`} ({new Date(nextBirthday.nextDate).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})})</p>
+                            </div>
+                        </div>
+                        <div className="absolute top-4 right-4 text-rose-300"><ChevronRight size={20} /></div>
+                   </div>
+               )}
+
+               {/* 4. ALBUM OF THE DAY */}
+               {dailyAlbum && (
+                   <div className="relative bg-blue-50 rounded-2xl p-6 shadow-sm cursor-pointer hover:bg-blue-100 transition-colors group overflow-hidden" onClick={() => { setGalleryViewYear(dailyAlbum.year); setActiveTab('gallery'); }}>
+                       {dailyAlbum.coverImage && <div className="absolute inset-0 opacity-20 group-hover:opacity-30 transition-opacity"><img src={dailyAlbum.coverImage} className="w-full h-full object-cover" /></div>}
+                        <div className="relative z-10">
+                            <div className="flex items-center gap-2 mb-2 font-bold text-blue-600"><RefreshCw size={20}/> ALBUM OF THE DAY</div>
+                            <p className="text-lg font-bold text-blue-900">{dailyAlbum.title}</p>
+                            <p className="text-sm text-blue-700">{dailyAlbum.subtitle || dailyAlbum.year}</p>
+                        </div>
+                   </div>
+               )}
+
             </div>
-            <div className="text-center text-slate-300 text-xs mt-12">Version 1.10 - Mobile Menu</div>
+            <div className="text-center text-slate-300 text-xs mt-12">Version 1.15 - Smart Widgets & Links</div>
           </div>
         )}
 
+        {/* ... (Other tabs remain the same) ... */}
         {activeTab === 'timeline' && (
             <div className="animate-in fade-in">
                 <header className="mb-6 flex justify-between items-start">
@@ -1006,7 +1111,6 @@ export default function App() {
             <FamilyTreeView familyMembers={familyMembers} viewRootId={viewRootId} setViewRootId={setViewRootId} onSelect={setSelectedPerson} zoom={zoom} scrollContainerRef={scrollContainerRef} handleZoomIn={handleZoomIn} handleZoomOut={handleZoomOut} handleResetZoom={handleResetZoom} isEditMode={isEditMode} />
         )}
 
-        {/* ... Other tabs (Gallery, Friends, Houses, Journal) ... */}
         {activeTab === 'gallery' && (
             <div>
                 <header className="mb-10 flex justify-between items-center">
@@ -1126,8 +1230,36 @@ export default function App() {
                  ))}
              </div>
         )}
+
       </main>
       
+      {/* --- BIRTHDAY MODAL --- */}
+      <Modal isOpen={birthdayModalOpen} onClose={() => setBirthdayModalOpen(false)}>
+          <div className="p-8">
+              <h3 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2"><Cake size={24} className="text-rose-500"/> Upcoming Birthdays</h3>
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+                  {allUpcomingBirthdays.map(member => (
+                      <div key={member.id} className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer" onClick={() => { setViewRootId(member.id); setActiveTab('family'); setBirthdayModalOpen(false); }}>
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg ${member.color || 'bg-slate-400'}`}>
+                              {member.image ? <img src={member.image} className="w-full h-full rounded-full object-cover"/> : member.name.charAt(0)}
+                          </div>
+                          <div className="flex-1">
+                              <h4 className="font-bold text-slate-800">{member.name}</h4>
+                              <p className="text-sm text-slate-500">{new Date(member.nextDate).toLocaleDateString(undefined, {weekday: 'long', month: 'long', day: 'numeric'})}</p>
+                          </div>
+                          <div className="text-right">
+                              <span className="block font-bold text-rose-500 text-lg">{member.daysUntil === 0 ? "Today!" : `${member.daysUntil} days`}</span>
+                          </div>
+                      </div>
+                  ))}
+                  {allUpcomingBirthdays.length === 0 && <p className="text-slate-400 text-center py-4">No upcoming birthdays found.</p>}
+              </div>
+              <div className="mt-6 text-center">
+                  <button onClick={() => setBirthdayModalOpen(false)} className="px-6 py-2 bg-slate-100 text-slate-600 font-bold rounded-lg hover:bg-slate-200">Close</button>
+              </div>
+          </div>
+      </Modal>
+
       <Modal isOpen={!!selectedPerson} onClose={closeModals}>
          {selectedPerson && (
              <div className="bg-white">
@@ -1214,7 +1346,7 @@ export default function App() {
           <div className="bg-white">
             <div className={`h-32 ${selectedEvent.color} flex items-center justify-center relative`}>
                {isEditMode && (
-                  <div className="absolute top-4 right-12 flex gap-2 z-20">
+                  <div className="absolute top-4 right-14 flex gap-2 z-20">
                       <button onClick={handleEditEvent} className="bg-white/20 hover:bg-white/40 p-2 rounded-full backdrop-blur-sm text-white"><Edit2 size={20} /></button>
                       <button onClick={handleDeleteEvent} className="bg-white/20 hover:bg-red-500/80 p-2 rounded-full backdrop-blur-sm text-white hover:text-white transition-colors"><Trash2 size={20} /></button>
                   </div>
