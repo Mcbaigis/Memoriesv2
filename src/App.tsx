@@ -759,7 +759,17 @@ export default function App() {
   };
   const handleDeleteAlbum = (e: any, id: string|number) => { e.stopPropagation(); e.preventDefault(); setConfirmModalConfig({ isOpen: true, title: "Delete", message: "Delete?", onConfirm: () => { dbDelete('albums', id); setConfirmModalConfig((p: any) => ({...p, isOpen:false})); }}); };
   const saveNewEntry = () => { if (!newEntryContent.trim()) return; const id = Date.now(); const newEntry = { id, date: new Date().toISOString(), content: newEntryContent, mood: "Neutral" }; dbUpdate('journal', id, newEntry); setIsCreatingEntry(false); setNewEntryContent(""); };
-  const deleteEntry = (id: string|number) => { if(window.confirm("Delete?")) dbDelete('journal', id); };
+  const deleteEntry = (id: string|number) => { 
+      setConfirmModalConfig({
+          isOpen: true, 
+          title: "Delete Entry", 
+          message: "Are you sure you want to delete this journal entry?", 
+          onConfirm: () => { 
+              dbDelete('journal', id); 
+              setConfirmModalConfig((prev: any) => ({...prev, isOpen: false}));
+          }
+      }); 
+  };
 
   if (!isAuthenticated) return <LoginScreen onLogin={handleFamilyLogin} correctPin={appSettings.familyPin} />;
 
@@ -1012,53 +1022,6 @@ export default function App() {
                  </div>
              </div>
          )}
-      </Modal>
-
-      <Modal isOpen={!!selectedHome} onClose={closeModals}>
-        {selectedHome && (
-          <div className="bg-white">
-             <div className={`h-48 ${selectedHome.color} relative flex items-center justify-center`}>
-                {isEditMode && (
-                    <button onClick={handleEditHome} className="absolute top-4 right-12 bg-white/20 hover:bg-white/40 p-2 rounded-full backdrop-blur-sm z-20">
-                        <Edit2 size={20} className="text-white" />
-                    </button>
-                )}
-                <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white to-transparent" />
-                {selectedHome.image ? (
-                    <img src={selectedHome.image} alt={selectedHome.name} className="w-full h-full object-cover" />
-                ) : (
-                    <Home size={80} className="text-white opacity-80 relative z-10" />
-                )}
-                <div className="absolute bottom-4 left-6 text-white z-10">
-                     <h2 className="text-3xl font-bold shadow-sm drop-shadow-md">{selectedHome.name}</h2>
-                </div>
-             </div>
-             <div className="p-6">
-               <div className="flex flex-col gap-1 mb-6">
-                 <p className="text-lg text-indigo-600 font-bold">{selectedHome.years}</p>
-                 <p className="text-slate-500 flex items-center gap-2"><MapPin size={16}/> {selectedHome.address}</p>
-               </div>
-               <div className="space-y-6">
-                 <div className="bg-slate-50 p-5 rounded-2xl relative"><p className="text-lg text-slate-700 leading-relaxed">{selectedHome.description}</p></div>
-                 {selectedHome.rooms && (
-                    <div>
-                        <h4 className="font-bold text-slate-400 text-xs uppercase tracking-wide mb-3">Rooms in this house</h4>
-                        <div className="grid grid-cols-2 gap-3">
-                            {selectedHome.rooms.map((room: any, i: number) => (
-                                <div key={i} className="bg-slate-50 rounded-xl overflow-hidden border border-slate-100 relative group">
-                                    {isEditMode && (<button onClick={() => handleDeleteRoom(i)} className="absolute top-2 right-2 bg-white/80 p-1 rounded-full text-slate-500 hover:text-red-500 z-10"><Trash2 size={14}/></button>)}
-                                    <div className={`h-24 ${room.color} flex items-center justify-center relative`}>{room.image ? (<img src={room.image} alt={room.name} className="w-full h-full object-cover" />) : (<ImageIcon className="text-slate-400 opacity-50" />)}</div>
-                                    <div className="p-3"><p className="font-bold text-slate-700 text-sm">{room.name}</p><p className="text-xs text-slate-500">{room.desc}</p></div>
-                                </div>
-                            ))}
-                            {isEditMode && (<button onClick={handleAddRoom} className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center min-h-[140px] text-slate-400 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-500"><Plus size={24} /><span className="text-xs font-bold mt-1">Add Room</span></button>)}
-                        </div>
-                    </div>
-                )}
-               </div>
-             </div>
-          </div>
-        )}
       </Modal>
 
       <Modal isOpen={!!selectedEvent} onClose={closeModals}>
