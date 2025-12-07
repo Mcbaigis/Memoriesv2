@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Heart, Calendar, MapPin, Briefcase, Camera, Home, Music, X, ChevronRight, Sun, Baby, Users, Star, Globe, Smile, Armchair, Book, Image as ImageIcon, Edit2, Save, Plus, Lock, Unlock, Trash2, ArrowLeft, ArrowRight, Maximize, Upload, ZoomIn, ZoomOut, Cake, Loader2, Newspaper, StickyNote, Settings, LogOut, Menu, Move
+  Heart, Calendar, MapPin, Briefcase, Camera, Home, Music, X, ChevronRight, Sun, Baby, Users, Star, Globe, Smile, Armchair, Book, Image as ImageIcon, Edit2, Save, Plus, Lock, Unlock, Trash2, ArrowLeft, ArrowRight, Maximize, Upload, ZoomIn, ZoomOut, Cake, Loader2, Newspaper, StickyNote, Settings, LogOut, Menu, Move, Folder
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -53,6 +53,13 @@ const getCategoryStyles = (category: any) => {
     }
 };
 
+const MONTH_OPTIONS = [
+    { value: 'January', label: 'January' }, { value: 'February', label: 'February' }, { value: 'March', label: 'March' },
+    { value: 'April', label: 'April' }, { value: 'May', label: 'May' }, { value: 'June', label: 'June' },
+    { value: 'July', label: 'July' }, { value: 'August', label: 'August' }, { value: 'September', label: 'September' },
+    { value: 'October', label: 'October' }, { value: 'November', label: 'November' }, { value: 'December', label: 'December' }
+];
+
 // --- DEFAULT DATA ---
 const DEFAULT_SETTINGS = { siteTitle: "Jackie's Memory Garden", adminPin: "1954", familyPin: "1234" };
 const DEFAULT_HOMES = [{ id: 'bungalow', name: 'The Bungalow', address: '12 Garden Row', years: '2015 - Present', color: 'bg-indigo-500', image: '', description: "Your lovely home.", features: [], rooms: [] }];
@@ -83,7 +90,7 @@ const DEFAULT_TIMELINE = [
   { year: 1976, title: "Wedding Day", category: "family", icon: "heart", color: "bg-red-500", description: "Married Kenny.", location: "St. Mary's", type: "memory" }
 ];
 const DEFAULT_JOURNAL = [{ id: '1', date: "2023-10-24", content: "Had a lovely cup of tea.", mood: "Happy" }];
-const DEFAULT_ALBUMS = [{ id: '1', title: 'Family Holidays', subtitle: 'Summer 1995', color: 'bg-blue-500', link: '', coverImage: '' }];
+const DEFAULT_ALBUMS = [{ id: '1', title: 'Family Holidays', subtitle: 'July 1995', year: 1995, month: 'July', color: 'bg-blue-500', link: '', coverImage: '' }];
 
 // --- UI COMPONENTS ---
 
@@ -496,6 +503,7 @@ export default function App() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const scrollContainerRef = useRef<any>(null);
+  const [galleryViewYear, setGalleryViewYear] = useState<string | number | null>(null);
 
   const [editModalConfig, setEditModalConfig] = useState<any>({ isOpen: false, title: '', fields: [], onSave: () => {} });
   const [confirmModalConfig, setConfirmModalConfig] = useState<any>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
@@ -707,7 +715,8 @@ export default function App() {
   const handleAddAlbum = () => { 
       const fields = [
           { name: "title", label: "Album Title", value: "" },
-          { name: "subtitle", label: "Month & Year (e.g. Dec 1980)", value: "" },
+          { name: "month", label: "Month", value: "", type: "select", options: MONTH_OPTIONS },
+          { name: "year", label: "Year", value: "" },
           { name: "link", label: "Google Photos Link", value: "" },
           { name: "coverImage", label: "Cover Photo", value: "", type: "file" }
       ];
@@ -717,7 +726,8 @@ export default function App() {
           fields,
           onSave: (data: any) => {
               const id = Date.now();
-              const newAlbum = { id, color: "bg-slate-400", ...data };
+              const subtitle = data.month && data.year ? `${data.month} ${data.year}` : data.year ? `${data.year}` : '';
+              const newAlbum = { id, color: "bg-slate-400", ...data, subtitle };
               dbUpdate('albums', id, newAlbum);
               setEditModalConfig((prev: any) => ({...prev, isOpen: false}));
           },
@@ -730,7 +740,8 @@ export default function App() {
     const album = albums.find(a => a.id === id);
     const fields = [
         { name: "title", label: "Album Title", value: album.title },
-        { name: "subtitle", label: "Month & Year", value: album.subtitle || "" },
+        { name: "month", label: "Month", value: album.month || "", type: "select", options: MONTH_OPTIONS },
+        { name: "year", label: "Year", value: album.year || "" },
         { name: "link", label: "Link", value: album.link },
         { name: "coverImage", label: "Cover Photo", value: album.coverImage, type: "file" }
     ];
@@ -739,7 +750,8 @@ export default function App() {
         title: "Edit Album",
         fields,
         onSave: (data: any) => {
-            dbUpdate('albums', id, { ...album, ...data });
+            const subtitle = data.month && data.year ? `${data.month} ${data.year}` : data.year ? `${data.year}` : '';
+            dbUpdate('albums', id, { ...album, ...data, subtitle });
             setEditModalConfig((p: any) => ({...p, isOpen:false}));
         },
         onUpload: handleUpload
@@ -750,6 +762,21 @@ export default function App() {
   const deleteEntry = (id: string|number) => { if(window.confirm("Delete?")) dbDelete('journal', id); };
 
   if (!isAuthenticated) return <LoginScreen onLogin={handleFamilyLogin} correctPin={appSettings.familyPin} />;
+
+  // Group Albums by Year
+  const albumsByYear = albums.reduce((acc: any, album: any) => {
+      const year = album.year || 'Undated';
+      if (!acc[year]) acc[year] = [];
+      acc[year].push(album);
+      return acc;
+  }, {});
+  
+  // Sort years descending
+  const sortedAlbumYears = Object.keys(albumsByYear).sort((a: any, b: any) => {
+      if(a === 'Undated') return 1;
+      if(b === 'Undated') return -1;
+      return b - a;
+  });
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-24 md:pb-0 md:pl-20">
@@ -860,19 +887,62 @@ export default function App() {
         {/* ... Other tabs (Gallery, Friends, Houses, Journal) ... */}
         {activeTab === 'gallery' && (
             <div>
-                <header className="mb-10 flex justify-between">
-                    <h2 className="text-4xl font-bold text-slate-800">Gallery</h2>
+                <header className="mb-10 flex justify-between items-center">
+                    {galleryViewYear ? (
+                        <div className="flex items-center gap-4">
+                            <button onClick={() => setGalleryViewYear(null)} className="bg-white p-2 rounded-full shadow-sm border border-slate-200 hover:bg-slate-50">
+                                <ArrowLeft size={24} className="text-slate-600"/>
+                            </button>
+                            <h2 className="text-4xl font-bold text-slate-800">{galleryViewYear} Gallery</h2>
+                        </div>
+                    ) : (
+                        <h2 className="text-4xl font-bold text-slate-800">Gallery</h2>
+                    )}
+                    
                     {isEditMode && <button onClick={handleAddAlbum} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"><Plus size={18}/> Add Album</button>}
                 </header>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {albums.map(album => (<a key={album.id} href={album.link} target="_blank" rel="noreferrer" className="block bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden"><div className="aspect-video relative">{album.coverImage ? <img src={album.coverImage} className="w-full h-full object-cover"/> : <div className={`w-full h-full ${album.color}`}></div>}</div><div className="p-4"><h3 className="font-bold text-xl">{album.title}</h3>
-                    {album.subtitle && <p className="text-slate-500 text-sm mt-1 font-medium">{album.subtitle}</p>}
-                    <div className="mt-2">
-                        {isEditMode && <button onClick={(e) => handleEditAlbum(e, album.id)} className="bg-indigo-50 text-indigo-600 p-2 rounded-full mr-2 hover:bg-indigo-100"><Edit2 size={16}/></button>}
-                        {isEditMode && <button onClick={(e) => handleDeleteAlbum(e, album.id)} className="bg-red-50 text-red-500 p-2 rounded-full hover:bg-red-100"><Trash2 size={16}/></button>}
+
+                {!galleryViewYear ? (
+                    // YEAR TILES VIEW
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4 animate-in fade-in">
+                        {sortedAlbumYears.map((year: any) => {
+                            const yearAlbums = albumsByYear[year];
+                            
+                            return (
+                                <button 
+                                    key={year} 
+                                    onClick={() => setGalleryViewYear(year)}
+                                    className="group relative aspect-square rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all bg-white border border-slate-200 flex flex-col items-center justify-center p-4 hover:border-indigo-300"
+                                >
+                                    <span className="block text-3xl font-bold text-slate-800 tracking-tight group-hover:text-indigo-600 transition-colors">{year}</span>
+                                    <span className="text-slate-400 font-medium text-xs uppercase tracking-wide mt-1">{yearAlbums.length} {yearAlbums.length === 1 ? 'Album' : 'Albums'}</span>
+                                </button>
+                            );
+                        })}
                     </div>
-                    </div></a>))}
-                </div>
+                ) : (
+                    // ALBUMS FOR SELECTED YEAR VIEW
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-right-4 duration-300">
+                        {albumsByYear[galleryViewYear]?.map((album: any) => (
+                            <a key={album.id} href={album.link} target="_blank" rel="noreferrer" className="block bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden group hover:shadow-md transition-shadow relative">
+                                <div className="aspect-video relative overflow-hidden">
+                                    {album.coverImage ? <img src={album.coverImage} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/> : <div className={`w-full h-full ${album.color}`}></div>}
+                                </div>
+                                <div className="p-4">
+                                    <h3 className="font-bold text-xl">{album.title}</h3>
+                                    {album.subtitle && <p className="text-slate-500 text-sm mt-1 font-medium">{album.subtitle}</p>}
+                                    <div className="mt-2 flex justify-end">
+                                        {isEditMode && <button onClick={(e) => handleEditAlbum(e, album.id)} className="bg-indigo-50 text-indigo-600 p-2 rounded-full mr-2 hover:bg-indigo-100"><Edit2 size={16}/></button>}
+                                        {isEditMode && <button onClick={(e) => handleDeleteAlbum(e, album.id)} className="bg-red-50 text-red-500 p-2 rounded-full hover:bg-red-100"><Trash2 size={16}/></button>}
+                                    </div>
+                                </div>
+                            </a>
+                        ))}
+                        {albumsByYear[galleryViewYear]?.length === 0 && (
+                            <div className="col-span-full text-center py-20 text-slate-400">No albums found for this year.</div>
+                        )}
+                    </div>
+                )}
             </div>
         )}
 
