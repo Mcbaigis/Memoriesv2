@@ -80,7 +80,6 @@ const GENERAL_FACTS = [
     { text: "Dolly the Sheep was born near Edinburgh in 1996.", source: "Science" },
     { text: "The Bay City Rollers hit #1 with 'Bye Bye Baby' in 1975.", source: "Music" },
     { text: "The Lisbon Lions (Celtic) won the European Cup in 1967.", source: "Sport" },
-    { text: "Queen Elizabeth II's coronation took place in 1953.", source: "Royal Family" },
     { text: "The UK switched to decimal currency in 1971.", source: "Daily Life" },
     { text: "The Beatles released 'Let It Be' in 1970.", source: "Music" },
     { text: "Concorde's first commercial flight was in 1976.", source: "Travel" },
@@ -914,7 +913,11 @@ export default function App() {
     const upcomingBirthdays = familyMembers
         .filter(m => m.dob && m.dob.includes('-')) 
         .map(m => {
-            const [y, month, d] = m.dob.split('-').map(Number);
+            const [y, month, d] = m.dob.split('-').map(Number); // Removed unused y variable in prev steps, but here it is cleaner to just ignore
+            // Using a comma to skip the first element (year) which is unused
+            // const [, month, d] = m.dob.split('-').map(Number); 
+            // Actually, let's keep it simple and just not use y.
+            
             let nextBday = new Date(currentYear, month - 1, d);
             if (nextBday < today) nextBday = new Date(currentYear + 1, month - 1, d);
             const diffTime = Math.abs(nextBday.getTime() - today.getTime());
@@ -966,7 +969,7 @@ export default function App() {
       return a.daysUntil - b.daysUntil; // Default 'date'
   });
 
-  // Define sortedAlbumYears BEFORE return statement to fix ReferenceError
+  // Group Albums by Year - moved inside component scope to prevent ReferenceError
   const albumsByYear = albums.reduce((acc: any, album: any) => {
       const year = album.year || 'Undated';
       if (!acc[year]) acc[year] = [];
