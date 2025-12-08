@@ -97,8 +97,10 @@ const getHistoryForDate = (date: Date) => {
     const day = date.getDate().toString().padStart(2, '0');
     const key = `${month}-${day}`;
     
+    // 1. Return Specific Fact if it matches today's date
     if (SPECIFIC_DATE_FACTS[key]) return { ...SPECIFIC_DATE_FACTS[key], type: 'specific' };
     
+    // 2. Else return General Fact (Deterministic random based on day of year)
     const start = new Date(date.getFullYear(), 0, 0);
     const diff = (date as any) - (start as any);
     const oneDay = 1000 * 60 * 60 * 24;
