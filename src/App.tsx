@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Heart, Calendar, MapPin, Briefcase, Camera, Home, Music, X, ChevronRight, Sun, Baby, Users, Star, Globe, Smile, Armchair, Book, Image as ImageIcon, Edit2, Save, Plus, Lock, Unlock, Trash2, ArrowLeft, ArrowRight, Maximize, Upload, ZoomIn, ZoomOut, Cake, Loader2, Newspaper, StickyNote, Settings, LogOut, Menu, Move, Bold, Italic, List, Gift, RefreshCw, Cloud, CloudRain, Snowflake, Wind, ExternalLink
+  Heart, Calendar, MapPin, Briefcase, Camera, Home, Music, X, ChevronRight, Sun, Baby, Users, Star, Globe, Smile, Armchair, Book, Image as ImageIcon, Edit2, Save, Plus, Lock, Unlock, Trash2, ArrowLeft, ArrowRight, Maximize, Upload, ZoomIn, ZoomOut, Cake, Loader2, Newspaper, StickyNote, Settings, LogOut, Menu, Move, Bold, Italic, List, Gift, RefreshCw, Cloud, CloudRain, Snowflake, Wind, ExternalLink, ArrowDownAZ, Clock
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -34,16 +34,39 @@ const getMonthNumber = (monthName: string) => {
     return months.indexOf(monthName);
 };
 
+const formatCountdown = (totalDays: number) => {
+    if (totalDays === 0) return "Today!";
+    if (totalDays === 1) return "Tomorrow!";
+    
+    // Approximate calculation
+    const months = Math.floor(totalDays / 30.44);
+    const remainingAfterMonths = totalDays - Math.floor(months * 30.44);
+    const weeks = Math.floor(remainingAfterMonths / 7);
+    const days = Math.round(remainingAfterMonths % 7);
+
+    const parts = [];
+    if (months > 0) parts.push(`${months} ${months === 1 ? 'mth' : 'mths'}`);
+    if (weeks > 0) parts.push(`${weeks} ${weeks === 1 ? 'wk' : 'wks'}`);
+    if (days > 0 || parts.length === 0) parts.push(`${days} ${days === 1 ? 'day' : 'days'}`);
+
+    return parts.length > 0 ? parts.join(', ') : "In a few days";
+};
+
 // --- HISTORY DATA ENGINE ---
 const SPECIFIC_DATE_FACTS: any = {
     '01-01': { text: "Ne'er-day! The First of January is a traditional celebration in Scotland.", source: "Scottish Tradition" },
     '01-25': { text: "Burns Night! Scots celebrate the birth of Robert Burns with haggis and poetry.", source: "Scottish Culture" },
+    '02-14': { text: "Valentine's Day. A day for love and friendship.", source: "Celebration" },
+    '05-06': { text: "Roger Bannister became the first person to run a mile in under 4 minutes in 1954.", source: "Sport" },
+    '06-02': { text: "The Coronation of Queen Elizabeth II took place on this day in 1953.", source: "Royal Family" },
+    '07-01': { text: "The Scottish Parliament was officially reconvened on this day in 1999.", source: "Modern History" },
+    '07-20': { text: "Neil Armstrong and Buzz Aldrin landed on the Moon in 1969.", source: "World Event" },
+    '09-04': { text: "The Forth Road Bridge was opened by Queen Elizabeth II in 1964.", source: "Scotland" },
+    '10-31': { text: "Halloween. Did you know the tradition of 'guising' originated in Scotland?", source: "Scottish Tradition" },
     '11-30': { text: "St Andrew's Day, the feast day of Scotland's patron saint.", source: "Scottish Celebration" },
+    '12-09': { text: "Coronation Street first aired on this day in 1960.", source: "TV History" },
     '12-25': { text: "Christmas Day. A time for family and roast turkey.", source: "Celebration" },
     '12-31': { text: "Hogmanay! The Scots word for the last day of the old year.", source: "Scottish Tradition" },
-    '02-14': { text: "Valentine's Day. A day for love and friendship.", source: "Celebration" },
-    '10-31': { text: "Halloween. Did you know the tradition of 'guising' originated in Scotland?", source: "Scottish Tradition" },
-    '07-01': { text: "The Scottish Parliament was officially reconvened on this day in 1999.", source: "Modern History" },
 };
 
 const GENERAL_FACTS = [
@@ -51,22 +74,18 @@ const GENERAL_FACTS = [
     { text: "The Lion Foundry in Kirkintilloch cast the iconic red telephone boxes seen across the UK.", source: "Local Industry" },
     { text: "The Antonine Wall runs through Peel Park, marking the Roman Empire's northern frontier.", source: "Ancient History" },
     { text: "Rita Cowan of Kirkintilloch helped found the Japanese Whisky industry in 1934.", source: "Local Legend" },
-    { text: "In 1964, Queen Elizabeth II opened the Forth Road Bridge.", source: "Scotland 1960s" },
     { text: "Sean Connery's first Bond film 'Dr. No' premiered in 1962.", source: "Cinema" },
     { text: "Glasgow was the European City of Culture in 1990.", source: "Glasgow 1990" },
     { text: "The Garden Festival revitalized Glasgow's Prince's Dock in 1988.", source: "Glasgow 1988" },
     { text: "Dolly the Sheep was born near Edinburgh in 1996.", source: "Science" },
     { text: "The Bay City Rollers hit #1 with 'Bye Bye Baby' in 1975.", source: "Music" },
     { text: "The Lisbon Lions (Celtic) won the European Cup in 1967.", source: "Sport" },
-    { text: "Queen Elizabeth II's coronation took place in 1953.", source: "Royal Family" },
     { text: "The UK switched to decimal currency in 1971.", source: "Daily Life" },
     { text: "The Beatles released 'Let It Be' in 1970.", source: "Music" },
-    { text: "Neil Armstrong walked on the moon in 1969.", source: "World 1969" },
     { text: "Concorde's first commercial flight was in 1976.", source: "Travel" },
     { text: "A pint of milk cost about 5 pence in 1970.", source: "Cost of Living" },
     { text: "Color TV broadcasts began on BBC2 in 1967.", source: "Technology" },
     { text: "Barbie dolls were introduced in 1959.", source: "Toys" },
-    { text: "Coronation Street first aired in 1960.", source: "TV" },
     { text: "Tunnock's Teacakes were created in 1956.", source: "Food" },
     { text: "Channel 4 launched in the UK in 1982.", source: "TV" },
     { text: "The Forth and Clyde Canal reopened in 2001.", source: "Local Geography" }
@@ -77,15 +96,14 @@ const getHistoryForDate = (date: Date) => {
     const day = date.getDate().toString().padStart(2, '0');
     const key = `${month}-${day}`;
     
-    if (SPECIFIC_DATE_FACTS[key]) return SPECIFIC_DATE_FACTS[key];
+    if (SPECIFIC_DATE_FACTS[key]) return { ...SPECIFIC_DATE_FACTS[key], type: 'specific' };
     
-    // Deterministic random based on day of year
     const start = new Date(date.getFullYear(), 0, 0);
     const diff = (date as any) - (start as any);
     const oneDay = 1000 * 60 * 60 * 24;
     const dayOfYear = Math.floor(diff / oneDay);
     
-    return GENERAL_FACTS[dayOfYear % GENERAL_FACTS.length];
+    return { ...GENERAL_FACTS[dayOfYear % GENERAL_FACTS.length], type: 'general' };
 };
 
 const ICON_MAP: any = {
@@ -165,7 +183,7 @@ const Modal = ({ isOpen, onClose, children, color = "bg-white", zIndex = "z-50" 
   );
 };
 
-// Rich Text Editor Component
+// Rich Text Editor
 const RichTextEditor = ({ value, onChange, placeholder }: any) => {
     const editorRef = useRef<HTMLDivElement>(null);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -410,9 +428,6 @@ const FamilyTreeView = ({ familyMembers, viewRootId, setViewRootId, onSelect, zo
 
     const handleTouchMove = (e: any) => {
         if (!isDragging || !scrollContainerRef.current) return;
-        // e.preventDefault(); 
-        // We generally want to preventDefault to stop native scrolling, 
-        // but 'touch-action: none' css should handle it better.
         const touch = e.touches[0];
         const x = touch.pageX - scrollContainerRef.current.offsetLeft;
         const y = touch.pageY - scrollContainerRef.current.offsetTop;
@@ -624,20 +639,21 @@ export default function App() {
   const scrollContainerRef = useRef<any>(null);
   const [galleryViewYear, setGalleryViewYear] = useState<string | number | null>(null);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  
+  const [birthdaySort, setBirthdaySort] = useState<'date' | 'name'>('date');
 
   const [editModalConfig, setEditModalConfig] = useState<any>({ isOpen: false, title: '', fields: [], onSave: () => {} });
   const [confirmModalConfig, setConfirmModalConfig] = useState<any>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
   const [birthdayModalOpen, setBirthdayModalOpen] = useState(false);
   
   const [journalEntries, setJournalEntries] = useState<any[]>([]);
-  const [albums, setAlbums] = useState<any[]>([]);
+  const [albums, setAlbums] = useState<any[]>(DEFAULT_ALBUMS); // Initialize with default albums to prevent empty gallery
   const [timelineEvents, setTimelineEvents] = useState<any[]>([]);
-  // INITIALIZE WITH DEFAULT FAMILY TO PREVENT BLANK SCREEN
   const [familyMembers, setFamilyMembers] = useState<any[]>(DEFAULT_FAMILY); 
   const [friends, setFriends] = useState<any[]>([]);
   const [homes, setHomes] = useState<any[]>([]);
   const [profile, setProfile] = useState({ name: "Jackie Johnston", details: "Born 1954 • Avid Gardener • Cake Baker" });
-  const [quickPrompt, setQuickPrompt] = useState({ text: "Your grandson Ben loves dinosaurs. He is coming to visit this Sunday." });
+  const [quickPrompt, setQuickPrompt] = useState({ title: "Remember This?", text: "Your grandson Ben loves dinosaurs. He is coming to visit this Sunday." });
   const [appSettings, setAppSettings] = useState(DEFAULT_SETTINGS);
   
   const [viewRootId, setViewRootId] = useState('jackie');
@@ -698,7 +714,7 @@ export default function App() {
   };
 
   const handleEditProfile = (e: any) => { e.stopPropagation(); setEditModalConfig({isOpen: true, title: "Edit Profile", fields: [{ name: "name", label: "Name", value: profile.name }, { name: "details", label: "Details", value: profile.details }], onSave: (data: any) => { dbUpdate('metadata', 'profile', data); setEditModalConfig((p: any) => ({...p, isOpen:false})); }}); };
-  const handleEditPrompt = (e: any) => { e.stopPropagation(); setEditModalConfig({isOpen: true, title: "Edit Reminder", fields: [{ name: "text", label: "Text", value: quickPrompt.text, type: "textarea" }], onSave: (data: any) => { dbUpdate('metadata', 'quickPrompt', data); setEditModalConfig((p: any) => ({...p, isOpen:false})); }}); };
+  const handleEditPrompt = (e: any) => { e.stopPropagation(); setEditModalConfig({isOpen: true, title: "Edit Reminder", fields: [{ name: "title", label: "Widget Title", value: quickPrompt.title || "Remember This?" }, { name: "text", label: "Content", value: quickPrompt.text, type: "textarea" }], onSave: (data: any) => { dbUpdate('metadata', 'quickPrompt', data); setEditModalConfig((p: any) => ({...p, isOpen:false})); }}); };
   
   const handleEditEvent = (e: any) => { 
       e.stopPropagation(); 
@@ -882,7 +898,8 @@ export default function App() {
         setDailyMemory({ type: 'journal', title: 'On this day you wrote...', text: journalMatch.content.replace(/<[^>]*>?/gm, '').substring(0, 100) + "...", icon: <Book size={24} className="text-emerald-600"/>, color: 'bg-emerald-100 text-emerald-900', secondary: randomFact });
     } else {
         // Changed fallback title to "On This Day in History" as requested
-        setDailyMemory({ type: 'history', title: `On This Day in History`, text: randomFact.text, subtext: randomFact.source, icon: <Globe size={24} className="text-amber-600"/>, color: 'bg-amber-100 text-amber-900' });
+        const title = randomFact.type === 'specific' ? "On This Day in History" : "Did You Know?";
+        setDailyMemory({ type: 'history', title: title, text: randomFact.text, subtext: randomFact.source, icon: <Globe size={24} className="text-amber-600"/>, color: 'bg-amber-100 text-amber-900' });
     }
 
     // 2. NEXT BIRTHDAY
@@ -938,6 +955,36 @@ export default function App() {
   const sortedTimeline = allTimelineEvents.filter(item => filters[item.category as keyof typeof filters]).filter(item => item.year >= startYear && item.year <= endYear).sort((a, b) => a.year - b.year);
   const filteredJournal = journalEntries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const getGreeting = () => { const hour = new Date().getHours(); if (hour < 12) return "Good Morning"; if (hour < 18) return "Good Afternoon"; return "Good Evening"; };
+  
+  // Sorted Birthdays for Modal
+  const sortedBirthdaysList = [...allUpcomingBirthdays].sort((a, b) => {
+      if (birthdaySort === 'name') return a.name.localeCompare(b.name);
+      return a.daysUntil - b.daysUntil; // Default 'date'
+  });
+
+  // Group Albums by Year - moved inside component scope
+  const albumsByYear = albums.reduce((acc: any, album: any) => {
+      const year = album.year || 'Undated';
+      if (!acc[year]) acc[year] = [];
+      acc[year].push(album);
+      return acc;
+  }, {});
+  
+  // Sort years descending (Newest to Oldest)
+  const sortedAlbumYears = Object.keys(albumsByYear).sort((a: any, b: any) => {
+      if(a === 'Undated') return 1;
+      if(b === 'Undated') return -1;
+      return b - a; // Descending
+  });
+
+  // Sort albums within each year (Jan to Dec)
+  Object.keys(albumsByYear).forEach(year => {
+      albumsByYear[year].sort((a: any, b: any) => {
+          const monthA = getMonthNumber(a.month);
+          const monthB = getMonthNumber(b.month);
+          return monthA - monthB; // Ascending
+      });
+  });
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-24 md:pb-0 md:pl-20">
@@ -1025,11 +1072,9 @@ export default function App() {
                   </div>
                </div>
 
-               {/* 2. ON THIS DAY / REMEMBER THIS CARD */}
+               {/* 2. ON THIS DAY / DID YOU KNOW */}
                <div className={`relative rounded-2xl p-6 shadow-sm cursor-pointer transition-colors ${dailyMemory ? dailyMemory.color : 'bg-amber-100 text-amber-900 hover:bg-amber-200'}`} onClick={() => dailyMemory?.onClick ? dailyMemory.onClick() : setActiveTab('family')}>
-                  {isEditMode && <button onClick={handleEditPrompt} className="absolute top-3 right-3 bg-white/40 p-1.5 rounded-full"><Edit2 size={14}/></button>}
-                  
-                  {dailyMemory ? (
+                  {dailyMemory && (
                       <div className="h-full flex flex-col justify-between">
                           <div className="flex items-center gap-2 mb-2 font-bold opacity-80">
                               {dailyMemory.icon}
@@ -1040,15 +1085,17 @@ export default function App() {
                             {dailyMemory.subtext && <p className="text-xs font-bold mt-2 opacity-60 uppercase">{dailyMemory.subtext}</p>}
                           </div>
                       </div>
-                  ) : (
-                      <>
-                        <div className="flex items-center gap-2 mb-2 font-bold text-amber-700"><Sun size={20}/> REMEMBER THIS?</div>
-                        <p className="text-lg font-medium leading-snug">"{quickPrompt?.text || "..."}"</p>
-                      </>
                   )}
                </div>
 
-               {/* 3. NEXT BIRTHDAY WIDGET */}
+               {/* 3. REMEMBER THIS WIDGET */}
+                <div className="relative bg-amber-100 rounded-2xl p-6 shadow-sm cursor-pointer hover:bg-amber-200 transition-colors">
+                  {isEditMode && <button onClick={handleEditPrompt} className="absolute top-3 right-3 bg-white/40 p-1.5 rounded-full"><Edit2 size={14}/></button>}
+                  <div className="flex items-center gap-2 mb-2 font-bold text-amber-700"><Sun size={20}/> <span className="uppercase text-xs tracking-wider">{quickPrompt?.title || "REMEMBER THIS?"}</span></div>
+                  <p className="text-lg font-medium leading-snug">"{quickPrompt?.text || "..."}"</p>
+               </div>
+
+               {/* 4. NEXT BIRTHDAY WIDGET */}
                {nextBirthday && (
                    <div className="relative bg-rose-50 rounded-2xl p-6 shadow-sm cursor-pointer hover:bg-rose-100 transition-colors" onClick={() => setBirthdayModalOpen(true)}>
                         <div className="flex items-center gap-2 mb-2 font-bold text-rose-600"><Cake size={20}/> UPCOMING BIRTHDAY</div>
@@ -1056,14 +1103,14 @@ export default function App() {
                             <div className="w-12 h-12 bg-rose-200 rounded-full flex items-center justify-center text-rose-600 font-bold text-xl">{nextBirthday.name.charAt(0)}</div>
                             <div>
                                 <p className="text-lg font-bold text-rose-900">{nextBirthday.name}</p>
-                                <p className="text-sm text-rose-700">{nextBirthday.daysUntil === 0 ? "Today!" : `In ${nextBirthday.daysUntil} days`} ({new Date(nextBirthday.nextDate).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})})</p>
+                                <p className="text-sm text-black font-bold">{formatCountdown(nextBirthday.daysUntil)}</p>
                             </div>
                         </div>
                         <div className="absolute top-4 right-4 text-rose-300"><ChevronRight size={20} /></div>
                    </div>
                )}
 
-               {/* 4. ALBUM OF THE DAY */}
+               {/* 5. ALBUM OF THE DAY */}
                {dailyAlbum && (
                    <div className="relative bg-blue-50 rounded-2xl p-6 shadow-sm cursor-pointer hover:bg-blue-100 transition-colors group overflow-hidden" onClick={() => { setGalleryViewYear(dailyAlbum.year); setActiveTab('gallery'); }}>
                        {dailyAlbum.coverImage && <div className="absolute inset-0 opacity-20 group-hover:opacity-30 transition-opacity"><img src={dailyAlbum.coverImage} className="w-full h-full object-cover" /></div>}
@@ -1076,7 +1123,7 @@ export default function App() {
                )}
 
             </div>
-            <div className="text-center text-slate-300 text-xs mt-12">Version 1.15 - Smart Widgets & Links</div>
+            <div className="text-center text-slate-300 text-xs mt-12">Version 1.16 - Smart Widgets & Fixes</div>
           </div>
         )}
 
@@ -1236,9 +1283,15 @@ export default function App() {
       {/* --- BIRTHDAY MODAL --- */}
       <Modal isOpen={birthdayModalOpen} onClose={() => setBirthdayModalOpen(false)}>
           <div className="p-8">
-              <h3 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2"><Cake size={24} className="text-rose-500"/> Upcoming Birthdays</h3>
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><Cake size={24} className="text-rose-500"/> Upcoming Birthdays</h3>
+                <div className="flex bg-slate-100 rounded-lg p-1">
+                    <button onClick={() => setBirthdaySort('date')} className={`p-2 rounded-md transition-all ${birthdaySort === 'date' ? 'bg-white shadow text-rose-500' : 'text-slate-400'}`} title="Sort by Date"><Clock size={16} /></button>
+                    <button onClick={() => setBirthdaySort('name')} className={`p-2 rounded-md transition-all ${birthdaySort === 'name' ? 'bg-white shadow text-rose-500' : 'text-slate-400'}`} title="Sort by Name"><ArrowDownAZ size={16} /></button>
+                </div>
+              </div>
               <div className="space-y-4 max-h-[60vh] overflow-y-auto">
-                  {allUpcomingBirthdays.map(member => (
+                  {sortedBirthdaysList.map(member => (
                       <div key={member.id} className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer" onClick={() => { setViewRootId(member.id); setActiveTab('family'); setBirthdayModalOpen(false); }}>
                           <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg ${member.color || 'bg-slate-400'}`}>
                               {member.image ? <img src={member.image} className="w-full h-full rounded-full object-cover"/> : member.name.charAt(0)}
@@ -1248,11 +1301,11 @@ export default function App() {
                               <p className="text-sm text-slate-500">{new Date(member.nextDate).toLocaleDateString(undefined, {weekday: 'long', month: 'long', day: 'numeric'})}</p>
                           </div>
                           <div className="text-right">
-                              <span className="block font-bold text-rose-500 text-lg">{member.daysUntil === 0 ? "Today!" : `${member.daysUntil} days`}</span>
+                              <span className="block font-bold text-black text-sm">{formatCountdown(member.daysUntil)}</span>
                           </div>
                       </div>
                   ))}
-                  {allUpcomingBirthdays.length === 0 && <p className="text-slate-400 text-center py-4">No upcoming birthdays found.</p>}
+                  {sortedBirthdaysList.length === 0 && <p className="text-slate-400 text-center py-4">No upcoming birthdays found.</p>}
               </div>
               <div className="mt-6 text-center">
                   <button onClick={() => setBirthdayModalOpen(false)} className="px-6 py-2 bg-slate-100 text-slate-600 font-bold rounded-lg hover:bg-slate-200">Close</button>
