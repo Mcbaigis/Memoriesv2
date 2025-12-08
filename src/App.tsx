@@ -49,7 +49,7 @@ const formatCountdown = (totalDays: number) => {
     if (weeks > 0) parts.push(`${weeks} ${weeks === 1 ? 'wk' : 'wks'}`);
     if (days > 0 || parts.length === 0) parts.push(`${days} ${days === 1 ? 'day' : 'days'}`);
 
-    return parts.length > 0 ? parts.join(', ') : "In a few days";
+    return parts.join(', ');
 };
 
 // --- HISTORY DATA ENGINE ---
@@ -80,6 +80,7 @@ const GENERAL_FACTS = [
     { text: "Dolly the Sheep was born near Edinburgh in 1996.", source: "Science" },
     { text: "The Bay City Rollers hit #1 with 'Bye Bye Baby' in 1975.", source: "Music" },
     { text: "The Lisbon Lions (Celtic) won the European Cup in 1967.", source: "Sport" },
+    { text: "Queen Elizabeth II's coronation took place in 1953.", source: "Royal Family" },
     { text: "The UK switched to decimal currency in 1971.", source: "Daily Life" },
     { text: "The Beatles released 'Let It Be' in 1970.", source: "Music" },
     { text: "Concorde's first commercial flight was in 1976.", source: "Travel" },
@@ -96,8 +97,10 @@ const getHistoryForDate = (date: Date) => {
     const day = date.getDate().toString().padStart(2, '0');
     const key = `${month}-${day}`;
     
+    // 1. Return Specific Fact if it matches today's date
     if (SPECIFIC_DATE_FACTS[key]) return { ...SPECIFIC_DATE_FACTS[key], type: 'specific' };
     
+    // 2. Else return General Fact (Deterministic random based on day of year)
     const start = new Date(date.getFullYear(), 0, 0);
     const diff = (date as any) - (start as any);
     const oneDay = 1000 * 60 * 60 * 24;
@@ -183,7 +186,7 @@ const Modal = ({ isOpen, onClose, children, color = "bg-white", zIndex = "z-50" 
   );
 };
 
-// Rich Text Editor
+// Rich Text Editor Component
 const RichTextEditor = ({ value, onChange, placeholder }: any) => {
     const editorRef = useRef<HTMLDivElement>(null);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -649,6 +652,7 @@ export default function App() {
   const [journalEntries, setJournalEntries] = useState<any[]>([]);
   const [albums, setAlbums] = useState<any[]>(DEFAULT_ALBUMS); // Initialize with default albums to prevent empty gallery
   const [timelineEvents, setTimelineEvents] = useState<any[]>([]);
+  // INITIALIZE WITH DEFAULT FAMILY TO PREVENT BLANK SCREEN
   const [familyMembers, setFamilyMembers] = useState<any[]>(DEFAULT_FAMILY); 
   const [friends, setFriends] = useState<any[]>([]);
   const [homes, setHomes] = useState<any[]>([]);
@@ -962,7 +966,7 @@ export default function App() {
       return a.daysUntil - b.daysUntil; // Default 'date'
   });
 
-  // Group Albums by Year - moved inside component scope
+  // Define sortedAlbumYears BEFORE return statement to fix ReferenceError
   const albumsByYear = albums.reduce((acc: any, album: any) => {
       const year = album.year || 'Undated';
       if (!acc[year]) acc[year] = [];
@@ -970,19 +974,18 @@ export default function App() {
       return acc;
   }, {});
   
-  // Sort years descending (Newest to Oldest)
   const sortedAlbumYears = Object.keys(albumsByYear).sort((a: any, b: any) => {
       if(a === 'Undated') return 1;
       if(b === 'Undated') return -1;
       return b - a; // Descending
   });
 
-  // Sort albums within each year (Jan to Dec)
+  // Sort albums within each year
   Object.keys(albumsByYear).forEach(year => {
       albumsByYear[year].sort((a: any, b: any) => {
           const monthA = getMonthNumber(a.month);
           const monthB = getMonthNumber(b.month);
-          return monthA - monthB; // Ascending
+          return monthA - monthB; 
       });
   });
 
