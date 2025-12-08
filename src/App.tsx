@@ -80,12 +80,15 @@ const GENERAL_FACTS = [
     { text: "Dolly the Sheep was born near Edinburgh in 1996.", source: "Science" },
     { text: "The Bay City Rollers hit #1 with 'Bye Bye Baby' in 1975.", source: "Music" },
     { text: "The Lisbon Lions (Celtic) won the European Cup in 1967.", source: "Sport" },
+    { text: "Queen Elizabeth II's coronation took place in 1953.", source: "Royal Family" },
     { text: "The UK switched to decimal currency in 1971.", source: "Daily Life" },
     { text: "The Beatles released 'Let It Be' in 1970.", source: "Music" },
+    { text: "Neil Armstrong walked on the moon in 1969.", source: "World 1969" },
     { text: "Concorde's first commercial flight was in 1976.", source: "Travel" },
     { text: "A pint of milk cost about 5 pence in 1970.", source: "Cost of Living" },
     { text: "Color TV broadcasts began on BBC2 in 1967.", source: "Technology" },
     { text: "Barbie dolls were introduced in 1959.", source: "Toys" },
+    { text: "Coronation Street first aired in 1960.", source: "TV" },
     { text: "Tunnock's Teacakes were created in 1956.", source: "Food" },
     { text: "Channel 4 launched in the UK in 1982.", source: "TV" },
     { text: "The Forth and Clyde Canal reopened in 2001.", source: "Local Geography" }
@@ -648,13 +651,13 @@ export default function App() {
   const [confirmModalConfig, setConfirmModalConfig] = useState<any>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
   const [birthdayModalOpen, setBirthdayModalOpen] = useState(false);
   
-  const [journalEntries, setJournalEntries] = useState<any[]>([]);
-  const [albums, setAlbums] = useState<any[]>(DEFAULT_ALBUMS); // Initialize with default albums to prevent empty gallery
-  const [timelineEvents, setTimelineEvents] = useState<any[]>([]);
-  // INITIALIZE WITH DEFAULT FAMILY TO PREVENT BLANK SCREEN
+  const [journalEntries, setJournalEntries] = useState<any[]>(DEFAULT_JOURNAL);
+  const [albums, setAlbums] = useState<any[]>(DEFAULT_ALBUMS); 
+  const [timelineEvents, setTimelineEvents] = useState<any[]>(DEFAULT_TIMELINE);
+  
   const [familyMembers, setFamilyMembers] = useState<any[]>(DEFAULT_FAMILY); 
-  const [friends, setFriends] = useState<any[]>([]);
-  const [homes, setHomes] = useState<any[]>([]);
+  const [friends, setFriends] = useState<any[]>(DEFAULT_FRIENDS);
+  const [homes, setHomes] = useState<any[]>(DEFAULT_HOMES);
   const [profile, setProfile] = useState({ name: "Jackie Johnston", details: "Born 1954 • Avid Gardener • Cake Baker" });
   const [quickPrompt, setQuickPrompt] = useState({ title: "Remember This?", text: "Your grandson Ben loves dinosaurs. He is coming to visit this Sunday." });
   const [appSettings, setAppSettings] = useState(DEFAULT_SETTINGS);
@@ -913,11 +916,7 @@ export default function App() {
     const upcomingBirthdays = familyMembers
         .filter(m => m.dob && m.dob.includes('-')) 
         .map(m => {
-            const [y, month, d] = m.dob.split('-').map(Number); // Removed unused y variable in prev steps, but here it is cleaner to just ignore
-            // Using a comma to skip the first element (year) which is unused
-            // const [, month, d] = m.dob.split('-').map(Number); 
-            // Actually, let's keep it simple and just not use y.
-            
+            const [, month, d] = m.dob.split('-').map(Number); // Skip unused year 'y'
             let nextBday = new Date(currentYear, month - 1, d);
             if (nextBday < today) nextBday = new Date(currentYear + 1, month - 1, d);
             const diffTime = Math.abs(nextBday.getTime() - today.getTime());
@@ -991,6 +990,78 @@ export default function App() {
           return monthA - monthB; 
       });
   });
+
+  // --- INITIALIZATION EFFECTS ---
+  useEffect(() => {
+    const storedAuth = localStorage.getItem('familyAuth');
+    if (storedAuth === 'true') setIsAuthenticated(true);
+    const initFirebase = async () => {
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const dbInstance = getFirestore(app);
+        const storageInstance = getStorage(app);
+        setDb(dbInstance);
+        setStorageRefState(storageInstance);
+        const currentAppId = "jackie-family-app-001";
+        setAppId(currentAppId);
+        try { await signInAnonymously(auth); } catch (error) { console.error("Auth Error:", error); }
+        onAuthStateChanged(auth, (u: any) => setUser(u));
+    };
+    initFirebase();
+  }, []);
+
+  useEffect(() => {
+      const timer = setInterval(() => setCurrentDate(new Date()), 60000);
+      return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+      if (!db || !user) return;
+      const dataPath = `artifacts/${appId}/public/data`;
+
+      const unsubMeta = onSnapshot(doc(db, `${dataPath}/metadata`, 'settings'), (docSnap: any) => {
+            if (docSnap.exists()) setAppSettings(docSnap.data() as any);
+            else setDoc(doc(db, `${dataPath}/metadata`, 'settings'), DEFAULT_SETTINGS);
+      }, (err: any) => console.log("Waiting for permissions...", err.code));
+
+      const unsubFamily = onSnapshot(collection(db, `${dataPath}/familyMembers`), (snap: any) => {
+        const data = snap.docs.map((d: any) => ({ ...d.data(), id: d.id })); 
+        if (data.length > 0) {
+            setFamilyMembers(prev => {
+               // Merge strategy: update existing, add new
+               const newMap = new Map(prev.map(p => [p.id, p]));
+               data.forEach((d: any) => newMap.set(d.id, d));
+               return Array.from(newMap.values());
+            });
+        }
+      }, (err: any) => console.log("Using default family data due to:", err.code));
+      
+      const unsubTimeline = onSnapshot(collection(db, `${dataPath}/timelineEvents`), (snap: any) => {
+            const data = snap.docs.map((d: any) => ({ ...d.data(), id: d.id }));
+            if (data.length > 0) setTimelineEvents(data);
+            else if (snap.empty) DEFAULT_TIMELINE.forEach(async (m) => await setDoc(doc(db, `${dataPath}/timelineEvents`, String(m.year + m.title)), m));
+      }, (err: any) => console.log("Waiting for permissions...", err.code));
+      
+      const unsubFriends = onSnapshot(collection(db, `${dataPath}/friends`), (snap: any) => { const data = snap.docs.map((d: any) => ({ ...d.data(), id: d.id })); if (data.length > 0) setFriends(data); else if(snap.empty) DEFAULT_FRIENDS.forEach(async (m, i) => await setDoc(doc(db, `${dataPath}/friends`, String(i)), m)); }, (err: any) => console.log("Waiting for permissions...", err.code));
+      const unsubHomes = onSnapshot(collection(db, `${dataPath}/homes`), (snap: any) => { const data = snap.docs.map((d: any) => ({ ...d.data(), id: d.id })); if (data.length > 0) setHomes(data); else if(snap.empty) DEFAULT_HOMES.forEach(async (m) => await setDoc(doc(db, `${dataPath}/homes`, m.id), m)); }, (err: any) => console.log("Waiting for permissions...", err.code));
+      const unsubJournal = onSnapshot(collection(db, `${dataPath}/journal`), (snap: any) => { const data = snap.docs.map((d: any) => ({ ...d.data(), id: d.id })); if (data.length > 0) setJournalEntries(data); else if(snap.empty) DEFAULT_JOURNAL.forEach(async (m) => await setDoc(doc(db, `${dataPath}/journal`, String(m.id)), m)); }, (err: any) => console.log("Waiting for permissions...", err.code));
+      const unsubAlbums = onSnapshot(collection(db, `${dataPath}/albums`), (snap: any) => { const data = snap.docs.map((d: any) => ({ ...d.data(), id: d.id })); if (data.length > 0) setAlbums(data); else if(snap.empty) DEFAULT_ALBUMS.forEach(async (m) => await setDoc(doc(db, `${dataPath}/albums`, String(m.id)), m)); }, (err: any) => console.log("Waiting for permissions...", err.code));
+      const unsubProfile = onSnapshot(collection(db, `${dataPath}/metadata`), (snap: any) => { snap.docs.forEach((d: any) => { if (d.id === 'profile') setProfile(d.data() as any); if (d.id === 'quickPrompt') setQuickPrompt(d.data() as any); }); }, (err: any) => console.log("Waiting for permissions...", err.code));
+
+      return () => {
+          unsubMeta();
+          unsubFamily();
+          unsubTimeline();
+          unsubFriends();
+          unsubHomes();
+          unsubJournal();
+          unsubAlbums();
+          unsubProfile();
+      };
+  }, [db, user, appId]);
+
+  // Restored the Login Check logic
+  if (!isAuthenticated) return <LoginScreen onLogin={handleFamilyLogin} correctPin={appSettings.familyPin} />;
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-24 md:pb-0 md:pl-20">
