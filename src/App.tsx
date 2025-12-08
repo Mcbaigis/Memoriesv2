@@ -34,6 +34,28 @@ const getMonthNumber = (monthName: string) => {
     return months.indexOf(monthName);
 };
 
+// Robust Date Parser: Prioritizes UK Format (DD/MM/YYYY) unless it's clearly ISO (YYYY-MM-DD)
+const parseDateString = (dateStr: string) => {
+    if (!dateStr) return null;
+    
+    // Normalize separator
+    const cleanStr = dateStr.replace(/\//g, '-');
+    const parts = cleanStr.split('-');
+
+    if (parts.length === 3) {
+        // Case 1: YYYY-MM-DD (Standard HTML Date Input)
+        if (parts[0].length === 4) {
+             return { month: parseInt(parts[1]), day: parseInt(parts[2]) };
+        }
+        // Case 2: DD-MM-YYYY (UK Format - User Manual Input)
+        else {
+             return { month: parseInt(parts[1]), day: parseInt(parts[0]) };
+        }
+    }
+
+    return null;
+};
+
 const formatCountdown = (totalDays: number) => {
     if (totalDays === 0) return "Today!";
     if (totalDays === 1) return "Tomorrow!";
@@ -165,7 +187,7 @@ const DEFAULT_FAMILY = [
   { id: 'lewis', name: 'Lewis', relation: 'Nephew', generation: 2, role: 'Nephew', color: 'bg-indigo-400', image: '', details: "Lindsay's Son.", parentId: 'lindsay' },
   { id: 'faye', name: 'Faye', relation: 'Niece', generation: 2, role: 'Niece', color: 'bg-fuchsia-400', image: '', details: "Lindsay's Daughter.", parentId: 'lindsay' },
   { id: 'paige', name: 'Paige', relation: 'Granddaughter', generation: 3, role: 'Granddaughter', color: 'bg-amber-400', image: '', details: "Kerry's Daughter.", parentId: 'kerry', dob: '2012-07-15' },
-  { id: 'anna', name: 'Anna', relation: 'Granddaughter', generation: 3, role: 'Granddaughter', color: 'bg-amber-400', image: '', details: "Kerry's Daughter.", parentId: 'kerry', dob: '2015-02-28' },
+  { id: 'anna', name: 'Anna', relation: 'Granddaughter', generation: 3, role: 'Granddaughter', color: 'bg-amber-400', image: '', details: "Kerry's Daughter.", parentId: 'kerry', dob: '2015-03-27' }, // Updated to March 27th as per feedback
   { id: 'willow', name: 'Willow', relation: 'Granddaughter', generation: 3, role: 'Granddaughter', color: 'bg-amber-400', image: '', details: "Grant's Daughter.", parentId: 'grant', dob: '2018-05-30' }
 ];
 const DEFAULT_TIMELINE = [
@@ -304,7 +326,7 @@ const EditorModal = ({ isOpen, title, fields, onClose, onSave, onUpload }: any) 
                                     )}
                                 </div>
                             ) : (
-                                <input type="text" value={formData[field.name] || ''} onChange={(e) => handleChange(field.name, e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 focus:border-indigo-400 focus:ring-0" />
+                                <input type={field.type || "text"} value={formData[field.name] || ''} onChange={(e) => handleChange(field.name, e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 focus:border-indigo-400 focus:ring-0" />
                             )}
                         </div>
                     ))}
@@ -651,13 +673,14 @@ export default function App() {
   const [confirmModalConfig, setConfirmModalConfig] = useState<any>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
   const [birthdayModalOpen, setBirthdayModalOpen] = useState(false);
   
+  // Use DEFAULT_... as initial state to avoid unused var errors and empty screens
   const [journalEntries, setJournalEntries] = useState<any[]>(DEFAULT_JOURNAL);
   const [albums, setAlbums] = useState<any[]>(DEFAULT_ALBUMS); 
   const [timelineEvents, setTimelineEvents] = useState<any[]>(DEFAULT_TIMELINE);
-  
   const [familyMembers, setFamilyMembers] = useState<any[]>(DEFAULT_FAMILY); 
   const [friends, setFriends] = useState<any[]>(DEFAULT_FRIENDS);
   const [homes, setHomes] = useState<any[]>(DEFAULT_HOMES);
+  
   const [profile, setProfile] = useState({ name: "Jackie Johnston", details: "Born 1954 • Avid Gardener • Cake Baker" });
   const [quickPrompt, setQuickPrompt] = useState({ title: "Remember This?", text: "Your grandson Ben loves dinosaurs. He is coming to visit this Sunday." });
   const [appSettings, setAppSettings] = useState(DEFAULT_SETTINGS);
@@ -755,8 +778,14 @@ export default function App() {
 
   const startEditPerson = () => { 
       if (selectedPerson.hasOwnProperty('generation')) { 
-          // It's family
-          const fields = [{ name: "name", label: "Name", value: selectedPerson.name }, { name: "relation", label: "Relation", value: selectedPerson.relation }, { name: "dob", label: "DOB (YYYY-MM-DD)", value: selectedPerson.dob }, { name: "image", label: "Photo", value: selectedPerson.image, type: "file" }, { name: "details", label: "Details", value: selectedPerson.details, type: "textarea" }]; 
+          // It's family. Use type='date' for DOB.
+          const fields = [
+              { name: "name", label: "Name", value: selectedPerson.name }, 
+              { name: "relation", label: "Relation", value: selectedPerson.relation }, 
+              { name: "dob", label: "DOB", value: selectedPerson.dob, type: "date" }, // Changed to date type
+              { name: "image", label: "Photo", value: selectedPerson.image, type: "file" }, 
+              { name: "details", label: "Details", value: selectedPerson.details, type: "textarea" }
+          ]; 
           setEditModalConfig({ isOpen: true, title: "Edit Member", fields, onSave: (data: any) => { const updated = { ...selectedPerson, ...data }; dbUpdate('familyMembers', selectedPerson.id, updated); setSelectedPerson(updated); setEditModalConfig((p: any) => ({...p, isOpen:false})); }, onUpload: handleUpload }); 
       } else { 
           // It's a friend
@@ -914,16 +943,35 @@ export default function App() {
     const currentYear = today.getFullYear();
     
     const upcomingBirthdays = familyMembers
-        .filter(m => m.dob && m.dob.includes('-')) 
+        .filter(m => m.dob) 
         .map(m => {
-            const [, month, d] = m.dob.split('-').map(Number); // Skip unused year 'y'
+            let month, d;
+            
+            // Try parsing with helper first
+            const parsed = parseDateString(m.dob);
+            if (parsed) {
+                month = parsed.month;
+                d = parsed.day;
+            } else {
+                 // Fallback simple split if helper fails (though helper covers main cases)
+                 // Assuming ISO YYYY-MM-DD if split works
+                 const parts = m.dob.split('-').map(Number);
+                 if (parts.length === 3) {
+                     month = parts[1];
+                     d = parts[2];
+                 } else {
+                     return null; // Skip invalid
+                 }
+            }
+            
             let nextBday = new Date(currentYear, month - 1, d);
             if (nextBday < today) nextBday = new Date(currentYear + 1, month - 1, d);
             const diffTime = Math.abs(nextBday.getTime() - today.getTime());
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
             return { ...m, daysUntil: diffDays, nextDate: nextBday };
         })
-        .sort((a, b) => a.daysUntil - b.daysUntil);
+        .filter(Boolean) // Remove nulls
+        .sort((a: any, b: any) => a.daysUntil - b.daysUntil);
         
     if (upcomingBirthdays.length > 0) {
         setNextBirthday(upcomingBirthdays[0]);
@@ -968,7 +1016,7 @@ export default function App() {
       return a.daysUntil - b.daysUntil; // Default 'date'
   });
 
-  // Group Albums by Year - moved inside component scope to prevent ReferenceError
+  // Group Albums by Year - moved inside component scope
   const albumsByYear = albums.reduce((acc: any, album: any) => {
       const year = album.year || 'Undated';
       if (!acc[year]) acc[year] = [];
@@ -976,18 +1024,19 @@ export default function App() {
       return acc;
   }, {});
   
+  // Sort years descending (Newest to Oldest)
   const sortedAlbumYears = Object.keys(albumsByYear).sort((a: any, b: any) => {
       if(a === 'Undated') return 1;
       if(b === 'Undated') return -1;
       return b - a; // Descending
   });
 
-  // Sort albums within each year
+  // Sort albums within each year (Jan to Dec)
   Object.keys(albumsByYear).forEach(year => {
       albumsByYear[year].sort((a: any, b: any) => {
           const monthA = getMonthNumber(a.month);
           const monthB = getMonthNumber(b.month);
-          return monthA - monthB; 
+          return monthA - monthB; // Ascending
       });
   });
 
@@ -1028,7 +1077,6 @@ export default function App() {
         const data = snap.docs.map((d: any) => ({ ...d.data(), id: d.id })); 
         if (data.length > 0) {
             setFamilyMembers(prev => {
-               // Merge strategy: update existing, add new
                const newMap = new Map(prev.map(p => [p.id, p]));
                data.forEach((d: any) => newMap.set(d.id, d));
                return Array.from(newMap.values());
@@ -1060,7 +1108,6 @@ export default function App() {
       };
   }, [db, user, appId]);
 
-  // Restored the Login Check logic
   if (!isAuthenticated) return <LoginScreen onLogin={handleFamilyLogin} correctPin={appSettings.familyPin} />;
 
   return (
@@ -1200,7 +1247,7 @@ export default function App() {
                )}
 
             </div>
-            <div className="text-center text-slate-300 text-xs mt-12">Version 1.16 - Smart Widgets & Fixes</div>
+            <div className="text-center text-slate-300 text-xs mt-12">Version 1.18 - Final Fixes</div>
           </div>
         )}
 
